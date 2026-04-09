@@ -1,0 +1,40 @@
+{% assign title = shop.metafields.settings.title %}
+{% assign content = shop.metafields.settings.content %}
+{% assign bg = shop.metafields.settings.background_color %}
+
+<div id="settings-banner">
+  <div style="
+    background: {{ bg | default: '#f3f0ff' }};
+    padding: 24px 20px;
+    text-align: center;
+    border-radius: 12px;
+  ">
+    <h2 style="
+      margin: 0 0 12px 0;
+      font-size: 28px;
+      font-weight: 700;
+      color: #202223;       
+      line-height: 1.2;
+    ">
+      {{ title }}
+    </h2>
+    
+    <p style="
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.6;
+      color: #202223;
+      white-space: pre-wrap;
+    ">
+      {{ content }}
+    </p>
+  </div>
+</div>
+ 
+{% schema %}
+{
+  "name": "Settings Banner",
+  "target": "section",
+  "settings": []
+}
+{% endschema %}
