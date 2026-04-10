@@ -49,3 +49,21 @@ model app_settings {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
+model app_banner {
+  id              Int      @id @default(autoincrement())
+  shop            String   @unique
+  title           String
+  content         String
+  color           String
+  backgroundColor String
+  size            String
+  link            String?   // optional
+  position        String    @default("top")
+  timeStart       DateTime? // optional
+  timeEnd         DateTime? // optional
+  status          Boolean   @default(false)
+  priority        Int       @default(0)
+  dismissible     Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
