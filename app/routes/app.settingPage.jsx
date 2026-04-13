@@ -375,7 +375,6 @@ useEffect(() => {
                   />
                   Status
                 </label>
-
               </InlineStack>
 
               {/* time */}

@@ -1,4 +1,3 @@
-
 {% assign title      = shop.metafields.banner.title.value %}
 {% assign content    = shop.metafields.banner.content.value %}
 {% assign link       = shop.metafields.banner.link.value %}
@@ -7,15 +6,63 @@
 {% assign time_end   = shop.metafields.banner.time_end.value %}
 {% assign status     = shop.metafields.banner.status.value %}
 
+
+<!-- ===== CSS ===== -->
+
+<style>
+.banner-scroll {
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.banner-scroll span {
+  display: inline-block;
+  padding-left: 100%;
+  animation: scrollLeft 18s linear infinite;
+  font-weight: 600;
+}
+
+/* chạy ngược */
+.banner-scroll.reverse span {
+  animation: scrollRight 18s linear infinite;
+}
+
+.banner-scroll span:hover {
+  animation-play-state: paused;
+}
+
+@keyframes scrollLeft {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+
+@keyframes scrollRight {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+</style>
+
+<!-- ===== banner run ===== -->
+
 {% if status == true or status == "true" %}
+<div id="settings-banner" style="background:white ; color: {{ color }}; width: 100%; overflow: hidden;">
 
-<div id="settings-banner" style="background: {{ bg }}; color: {{ color }}; width: 100%;">
+  <div class="banner-scroll">
+    <span>
+      {{ title }} — {{ content }}
+      &nbsp;&nbsp;&nbsp;&nbsp;
+      {{ title }} — {{ content }}
+    </span>
+  </div>
 
+<!-- ===== body ===== -->
+
+<div id="settings-banner" style="background: {{ bg }}; color: {{ color }}; width: 100%; overflow: hidden;">
   <div style="padding: 20px; text-align: center;">
 
     <h2 style="margin: 0 0 10px 0;">
       {% if link != blank %}
-        <a href="{{ link }}" style="color: inherit;">
+        <a href="{{ link }}" style="color: inherit; text-decoration: none;">
           {{ title }}
         </a>
       {% else %}
@@ -33,9 +80,21 @@
         <span id="seconds">00</span>s
       </div>
     {% endif %}
+  </div>
 
+<!-- ===== banner run ===== -->
+
+  <div style="background: white; color: {{ color }}; overflow: hidden;">
+  <div class="banner-scroll reverse">
+    <span>
+       {{ content }} — {{ title }} 
+      &nbsp;&nbsp;&nbsp;&nbsp;
+       {{ content }} — {{ title }} 
+    </span>
   </div>
 </div>
+
+<!-- ===== COUNTDOWN ===== --> 
 
 {% if time_end != blank %}
 <script>
@@ -68,6 +127,7 @@
   updateCountdown();
   setInterval(updateCountdown, 1000);
 })();
+
 </script>
 {% endif %}
 {% endif %}
@@ -75,6 +135,6 @@
 {% schema %}
 {
   "name": "Settings Banner",
-  "target": "section",
+  "target": "section"
 }
 {% endschema %}
