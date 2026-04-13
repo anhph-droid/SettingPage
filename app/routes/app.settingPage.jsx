@@ -335,65 +335,6 @@ useEffect(() => {
                   style={{ width: "60px", height: "40px", border: "none" }}
                />
 
-              {/* size */}
-              <BlockStack gap="100">
-                <Text variant="bodySm">Size</Text>
-                <select
-                  name="size"
-                  value={size}
-                  onChange={(e) => setSize(e.target.value)}
-                >
-                  <option value="small">Small</option>
-                  <option value="medium">Medium</option>
-                  <option value="large">Large</option>
-                </select>
-              </BlockStack>
-
-
-              {/* position */}
-              <BlockStack gap="100">
-                <Text variant="bodySm">Position</Text>
-                <select
-                  name="position"
-                  value={position}
-                  onChange={(e) => setPosition(e.target.value)}
-                >
-                  <option value="top">Top</option>
-                  <option value="bottom">Bottom</option>
-                </select>
-              </BlockStack>
-
-              <TextField
-                label="Priority"
-                type="number"
-                name="priority"
-                value={priority}
-                onChange={setPriority}
-              />
-
-              {/* checkbox */}
-              <InlineStack gap="400">
-                <label>
-                  <input
-                    type="checkbox"
-                    name="status"
-                    checked={status}
-                    onChange={(e) => setStatus(e.target.checked)}
-                  />
-                  Enable banner
-                </label>
-
-                <label>
-                  <input
-                    type="checkbox"
-                    name="dismissible"
-                    checked={dismissible}
-                    onChange={(e) => setDismissible(e.target.checked)}
-                  />
-                  Allow close
-                </label>
-              </InlineStack>
-
               {/* time */}
               <BlockStack gap="100">
                 <Text variant="bodySm">Schedule</Text>
@@ -454,12 +395,7 @@ useEffect(() => {
                   <Text> Link: {link || "—"}</Text>
                   <Text> Text color: {color}</Text>
                   <Text> Background: {backgroundColor}</Text>
-                  <Text> Size: {size}</Text>
-                  <Text> Position: {position}</Text>
-                  <Text> Priority: {priority}</Text>
-                  <Text> Status: {status ? "ON" : "OFF"}</Text>
-                  <Text> Dismissible: {dismissible ? "YES" : "NO"}</Text>
-
+              
                   <Text>
                      Time:
                     {timeStart && timeEnd
