@@ -72,7 +72,6 @@ export const action = async ({ request }) => {
     return { ok: false, errors };
   }
 
-  // 👉 get shopId
   const shopRes = await admin.graphql(`
     query {
       shop {
@@ -84,7 +83,6 @@ export const action = async ({ request }) => {
   const shopJson = await shopRes.json();
   const shopId = shopJson.data.shop.id;
 
-  // 👉 build metafields (CHỈ PUSH KHI CÓ DATA)
   const metafields = [];
 
   if (title) {
@@ -161,7 +159,6 @@ export const action = async ({ request }) => {
     });
   }
 
-  // 👉 call API
   const res = await admin.graphql(
     `#graphql
     mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
@@ -186,7 +183,6 @@ export const action = async ({ request }) => {
     };
   }
 
-  // 👉 save DB
   await prisma.app_banner.upsert({
     where: { shop: session.shop },
     update: {
@@ -233,7 +229,6 @@ export default function SettingPage() {
   const [position, setPosition] = useState(initialSettings?.position || "top");
   const [priority, setPriority] = useState(initialSettings?.priority || 0);
   const [status, setStatus] = useState(initialSettings?.status || false);
-  const [dismissible, setDismissible] = useState(initialSettings?.dismissible || false);
   const [title, setTitle] = useState(initialSettings?.title || DEFAULT_SETTINGS.title);
   const [content, setContent] = useState(initialSettings?.content || DEFAULT_SETTINGS.content);
   const [backgroundColor, setBackgroundColor] = useState(
@@ -294,7 +289,6 @@ useEffect(() => {
           <fetcher.Form method="post" onSubmit={handleSubmit}>
           <Card>
             <BlockStack gap="400">
-
               <TextField
                 label="Title"
                 name="title"
@@ -349,7 +343,6 @@ useEffect(() => {
                 </select>
               </BlockStack>
 
-
               {/* position */}
               <BlockStack gap="100">
                 <Text variant="bodySm">Position</Text>
@@ -388,8 +381,6 @@ useEffect(() => {
               {/* time */}
               <BlockStack gap="100">
                 <Text variant="bodySm">Time end</Text>
-
-
                   <input
                     type="datetime-local"
                     name="timeEnd"
@@ -427,11 +418,10 @@ useEffect(() => {
           <Card>
             <BlockStack gap="400">
               <Text variant="headingSm">Preview</Text>
-              {/* ===== Info preview ===== */}
               <Card>
                 <BlockStack gap="200">
-                  <TextField value={title} />
-                  <TextField value={content} />
+                  <text>{title}</text>
+                  <text>{content}</text>
                   <Text variant="headingXs">Configuration</Text>
                   <Text> Link: {link || "—"}</Text>
                   <Text> Text color: {color}</Text>
@@ -447,7 +437,7 @@ useEffect(() => {
                 </BlockStack>
               </Card>
             </BlockStack>
-          </Card>
+          </Card>     
     </div>
     </Page>
   );
