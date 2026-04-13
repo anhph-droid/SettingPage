@@ -383,29 +383,12 @@ useEffect(() => {
                   Status
                 </label>
 
-                <label>
-                  <input
-                    type="checkbox"
-                    name="dismissible"
-                    checked={dismissible}
-                    onChange={(e) => setDismissible(e.target.checked)}
-                  />
-                  Allow close
-                </label>
               </InlineStack>
 
               {/* time */}
               <BlockStack gap="100">
-                <Text variant="bodySm">Schedule</Text>
+                <Text variant="bodySm">Time end</Text>
 
-                <InlineStack gap="200">
-                  <input
-                    type="datetime-local"
-                    name="timeStart"
-                    value={timeStart}
-                    onChange={(e) => setTimeStart(e.target.value)}
-                    style={{ padding: 8 }}
-                  />
 
                   <input
                     type="datetime-local"
@@ -414,7 +397,6 @@ useEffect(() => {
                     onChange={(e) => setTimeEnd(e.target.value)}
                     style={{ padding: 8 }}
                   />
-                </InlineStack>
               </BlockStack>
 
               <InlineStack align="end">
@@ -458,15 +440,9 @@ useEffect(() => {
                   <Text> Position: {position}</Text>
                   <Text> Priority: {priority}</Text>
                   <Text> Status: {status ? "ON" : "OFF"}</Text>
-                  <Text> Dismissible: {dismissible ? "YES" : "NO"}</Text>
-
                   <Text>
-                     Time:
-                    {timeStart && timeEnd
-                      ? ` ${new Date(timeStart).toLocaleString()} → ${new Date(
-                          timeEnd
-                        ).toLocaleString()}`
-                      : " Not scheduled"}
+                     Time end :
+                    { timeEnd ? ` ${new Date( timeEnd ).toLocaleString()}`: " Not scheduled"}
                   </Text>
                 </BlockStack>
               </Card>

@@ -2,18 +2,20 @@
 {% assign title      = shop.metafields.banner.title.value %}
 {% assign content    = shop.metafields.banner.content.value %}
 {% assign link       = shop.metafields.banner.link.value %}
-{% assign bg         = shop.metafields.banner.background_color.value  %}
-{% assign color      = shop.metafields.banner.color.value  %}
+{% assign bg         = shop.metafields.banner.background_color.value %}
+{% assign color      = shop.metafields.banner.color.value %}
 {% assign time_end   = shop.metafields.banner.time_end.value %}
+{% assign status     = shop.metafields.banner.status.value %}
 
-<div id="settings-banner" style="background: {{ bg }}; color: {{ color }}; max-width: 1200px; margin: 0 auto; padding: 0 20px;">
+{% if status == true or status == "true" %}
+
+<div id="settings-banner" style="background: {{ bg }}; color: {{ color }}; width: 100%;">
 
   <div style="padding: 20px; text-align: center;">
 
-    <!-- TITLE -->
-    <h2 style="margin: 0 0 10px 0; font-size: 26px; font-weight: 700;">
+    <h2 style="margin: 0 0 10px 0;">
       {% if link != blank %}
-        <a href="{{ link }}" style="color: inherit; text-decoration: none;">
+        <a href="{{ link }}" style="color: inherit;">
           {{ title }}
         </a>
       {% else %}
@@ -21,14 +23,10 @@
       {% endif %}
     </h2>
 
-    <!-- CONTENT -->
-    <p style="margin: 0 0 10px 0; font-size: 15px;">
-      {{ content }}
-    </p>
+    <p>{{ content }}</p>
 
-    <!-- COUNTDOWN -->
     {% if time_end != blank %}
-      <div id="countdown" style="font-weight: 700; margin-top: 10px;">
+      <div id="countdown">
         <span id="days">00</span>d
         <span id="hours">00</span>h
         <span id="minutes">00</span>m
@@ -72,6 +70,10 @@
 })();
 </script>
 {% endif %}
+
+{% endif %}
+
+
 
 {% schema %}
 {
