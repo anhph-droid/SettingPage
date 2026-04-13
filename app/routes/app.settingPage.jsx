@@ -15,7 +15,6 @@ import {
   Button,
   Text,
   InlineStack,
-  Banner,
 } from "@shopify/polaris";
 
 const DEFAULT_SETTINGS = {
@@ -38,7 +37,7 @@ export const loader = async ({ request }) => {
 };
 
 export const action = async ({ request }) => {
-  const { session } = await authenticate.admin(request);
+  const { session, admin } = await authenticate.admin(request);
   const formData = await request.formData();
 
   const title = formData.get("title")?.toString() || "";
@@ -64,10 +63,7 @@ export const action = async ({ request }) => {
 
   // validate time
   if (timeStartStr && timeEndStr) {
-    const start = new Date(timeStartStr);
-    const end = new Date(timeEndStr);
-
-    if (start > end) {
+    if (new Date(timeStartStr) > new Date(timeEndStr)) {
       errors.general = "Start time must be before End time";
     }
   }
@@ -76,6 +72,121 @@ export const action = async ({ request }) => {
     return { ok: false, errors };
   }
 
+  // 👉 get shopId
+  const shopRes = await admin.graphql(`
+    query {
+      shop {
+        id
+      }
+    }
+  `);
+
+  const shopJson = await shopRes.json();
+  const shopId = shopJson.data.shop.id;
+
+  // 👉 build metafields (CHỈ PUSH KHI CÓ DATA)
+  const metafields = [];
+
+  if (title) {
+    metafields.push({
+      namespace: "banner",
+      key: "title",
+      type: "single_line_text_field",
+      value: title,
+      ownerId: shopId,
+    });
+  }
+
+  if (content) {
+    metafields.push({
+      namespace: "banner",
+      key: "content",
+      type: "multi_line_text_field",
+      value: content,
+      ownerId: shopId,
+    });
+  }
+
+  if (link) {
+    metafields.push({
+      namespace: "banner",
+      key: "link",
+      type: "single_line_text_field",
+      value: link,
+      ownerId: shopId,
+    });
+  }
+
+  metafields.push(
+    {
+      namespace: "banner",
+      key: "color",
+      type: "single_line_text_field",
+      value: color,
+      ownerId: shopId,
+    },
+    {
+      namespace: "banner",
+      key: "background_color",
+      type: "single_line_text_field",
+      value: backgroundColor,
+      ownerId: shopId,
+    },
+    {
+      namespace: "banner",
+      key: "status",
+      type: "boolean",
+      value: status ? "true" : "false",
+      ownerId: shopId,
+    }
+  );
+
+  if (timeStartStr) {
+    metafields.push({
+      namespace: "banner",
+      key: "time_start",
+      type: "date_time",
+      value: new Date(timeStartStr + ":00").toISOString(),
+      ownerId: shopId,
+    });
+  }
+
+  if (timeEndStr) {
+    metafields.push({
+      namespace: "banner",
+      key: "time_end",
+      type: "date_time",
+      value: new Date(timeEndStr + ":00").toISOString(),
+      ownerId: shopId,
+    });
+  }
+
+  // 👉 call API
+  const res = await admin.graphql(
+    `#graphql
+    mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
+      metafieldsSet(metafields: $metafields) {
+        userErrors {
+          field
+          message
+        }
+      }
+    }
+  `,
+    { variables: { metafields } }
+  );
+
+  const json = await res.json();
+  console.log("METAFIELD RESULT:", json);
+
+  if (json.data.metafieldsSet.userErrors.length > 0) {
+    return {
+      ok: false,
+      errors: json.data.metafieldsSet.userErrors,
+    };
+  }
+
+  // 👉 save DB
   await prisma.app_banner.upsert({
     where: { shop: session.shop },
     update: {
@@ -116,7 +227,13 @@ export default function SettingPage() {
   const initialSettings = useLoaderData();
   const fetcher = useFetcher();
   const shopify = useAppBridge();
-
+  const [link, setLink] = useState(initialSettings?.link || "");
+  const [color, setColor] = useState(initialSettings?.color || "#000000");
+  const [size, setSize] = useState(initialSettings?.size || "medium");
+  const [position, setPosition] = useState(initialSettings?.position || "top");
+  const [priority, setPriority] = useState(initialSettings?.priority || 0);
+  const [status, setStatus] = useState(initialSettings?.status || false);
+  const [dismissible, setDismissible] = useState(initialSettings?.dismissible || false);
   const [title, setTitle] = useState(initialSettings?.title || DEFAULT_SETTINGS.title);
   const [content, setContent] = useState(initialSettings?.content || DEFAULT_SETTINGS.content);
   const [backgroundColor, setBackgroundColor] = useState(
@@ -143,14 +260,21 @@ const isActive =
 
   const [errors, setErrors] = useState({});
 
-  useEffect(() => {
-    if (fetcher.data?.ok) {
-      shopify.toast.show("Settings saved successfully", { duration: 3000 });
-      setErrors({});
-    } else if (fetcher.data?.errors) {
-      setErrors(fetcher.data.errors);
-    }
-  }, [fetcher.data, shopify]);
+useEffect(() => {
+  if (!fetcher.data) return;
+
+  if (fetcher.data.ok) {
+    shopify.toast.show("Settings saved successfully", {
+      duration: 3000,
+    });
+  }
+
+  if (fetcher.data.errors) {
+    shopify.toast.show("Error saving settings", {
+      duration: 3000,
+    });
+  }
+}, [fetcher.data, shopify]);
 
   const isSaving = fetcher.state === "submitting" || fetcher.state === "loading";
 
@@ -193,13 +317,23 @@ const isActive =
                 onChange={setLink}
                 placeholder="https://..."
               />
-
-              <TextField
-                label="Text color"
-                name="color"
-                value={color}
-                onChange={setColor}
+              <Text variant="bodySm">Background color</Text>
+                <input
+                  type="color"
+                  name="backgroundColor"
+                  value={backgroundColor}
+                  onChange={(e) => setBackgroundColor(e.target.value)}
+                  style={{ width: "60px", height: "40px", border: "none" }}
               />
+
+             <Text variant="bodySm">Text color</Text>
+                <input
+                  type="color"
+                  name="color"
+                  value={color}
+                  onChange={(e) => setColor(e.target.value)}
+                  style={{ width: "60px", height: "40px", border: "none" }}
+               />
 
               {/* size */}
               <BlockStack gap="100">
@@ -214,6 +348,7 @@ const isActive =
                   <option value="large">Large</option>
                 </select>
               </BlockStack>
+
 
               {/* position */}
               <BlockStack gap="100">
@@ -307,56 +442,36 @@ const isActive =
           </Card>
         </fetcher.Form>
 
+          <Card>
+            <BlockStack gap="400">
+              <Text variant="headingSm">Preview</Text>
+              {/* ===== Info preview ===== */}
+              <Card>
+                <BlockStack gap="200">
+                  <TextField value={title} />
+                  <TextField value={content} />
+                  <Text variant="headingXs">Configuration</Text>
+                  <Text> Link: {link || "—"}</Text>
+                  <Text> Text color: {color}</Text>
+                  <Text> Background: {backgroundColor}</Text>
+                  <Text> Size: {size}</Text>
+                  <Text> Position: {position}</Text>
+                  <Text> Priority: {priority}</Text>
+                  <Text> Status: {status ? "ON" : "OFF"}</Text>
+                  <Text> Dismissible: {dismissible ? "YES" : "NO"}</Text>
 
-
-<Card>
-  <BlockStack gap="400">
-    <Text variant="headingSm">Preview</Text>
-
-    {isActive ? (
-      <div
-        style={{
-          background: backgroundColor,
-          padding: "24px",
-          borderRadius: "16px",
-          minHeight: "180px",
-        }}
-      >
-        <div
-          style={{
-            fontSize: "28px",
-            fontWeight: 700,
-            marginBottom: "12px",
-            color: "#202223",
-          }}
-        >
-          {title || "Your title will appear here"}
-        </div>
-        <div
-          style={{
-            fontSize: "15px",
-            lineHeight: 1.6,
-            whiteSpace: "pre-wrap",
-            color: "#202223",
-          }}
-        >
-          {content || "Your content will appear here"}
-        </div>
-      </div>
-    ) : (
-      <div
-          style={{
-            fontSize: "15px",
-            lineHeight: 1.6,
-            whiteSpace: "pre-wrap",
-            color: "#202223",
-          }}
-        >
-          {timeStart && timeEnd ? `Will show from ${new Date(timeStart).toLocaleString()} to ${new Date(timeEnd).toLocaleString()}` : "Set start and end time to schedule the banner"}
-        </div>
-    )}
-  </BlockStack>
-</Card>
+                  <Text>
+                     Time:
+                    {timeStart && timeEnd
+                      ? ` ${new Date(timeStart).toLocaleString()} → ${new Date(
+                          timeEnd
+                        ).toLocaleString()}`
+                      : " Not scheduled"}
+                  </Text>
+                </BlockStack>
+              </Card>
+            </BlockStack>
+          </Card>
     </div>
     </Page>
   );
