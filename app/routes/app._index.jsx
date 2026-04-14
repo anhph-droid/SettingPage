@@ -1,331 +1,284 @@
-import { useEffect } from "react";
-import { useFetcher } from "react-router";
-import { useAppBridge } from "@shopify/app-bridge-react";
-import { boundary } from "@shopify/shopify-app-react-router/server";
+import {
+  Page,
+  Layout,
+  Card,
+  BlockStack,
+  InlineStack,
+  Button,
+  Text,
+  Badge,
+  EmptyState,
+  IndexTable,
+  useIndexResourceState,
+  Box,
+  Divider,
+} from "@shopify/polaris";
+
+import React, { useState, useCallback } from "react";
+import {
+  Popover,
+  ActionList,
+} from "@shopify/polaris";
+
+import { MenuHorizontalIcon } from "@shopify/polaris-icons";
+import { useNavigate, useLoaderData, useFetcher } from "react-router";
 import { authenticate } from "../shopify.server";
+import prisma from "../db.server";
 
-export const loader = async ({ request }) => {
-  await authenticate.admin(request);
+export const action = async ({ request }) => {
+  const { session } = await authenticate.admin(request);
+  const formData = await request.formData();
+  const intent = formData.get("intent");
 
+  if (intent === "delete") {
+    const id = Number(formData.get("id"));
+    await prisma.app_banner.delete({ where: { id } });
+    return { ok: true };
+  }
+
+  if (intent === "duplicate") {
+    const id = Number(formData.get("id"));
+    const banner = await prisma.app_banner.findUnique({ where: { id } });
+
+    if (!banner) return { ok: false };
+
+    await prisma.app_banner.create({
+      data: {
+        ...banner,
+        id: undefined,
+        title: banner.title + " (Copy)",
+        createdAt: undefined,
+        updatedAt: undefined,
+      },
+    });
+    return { ok: true };
+  }
   return null;
 };
 
-export const action = async ({ request }) => {
-  const { admin } = await authenticate.admin(request);
-  const color = ["Red", "Orange", "Yellow", "Green"][
-    Math.floor(Math.random() * 4)
-  ];
-  const response = await admin.graphql(
-    `#graphql
-      mutation populateProduct($product: ProductCreateInput!) {
-        productCreate(product: $product) {
-          product {
-            id
-            title
-            handle
-            status
-            variants(first: 10) {
-              edges {
-                node {
-                  id
-                  price
-                  barcode
-                  createdAt
-                }
-              }
-            }
-            demoInfo: metafield(namespace: "$app", key: "demo_info") {
-              jsonValue
-            }
-          }
-        }
-      }`,
-    {
-      variables: {
-        product: {
-          title: `${color} Snowboard`,
-          metafields: [
-            {
-              namespace: "$app",
-              key: "demo_info",
-              value: "Created by React Router Template",
-            },
-          ],
-        },
-      },
-    },
-  );
-  const responseJson = await response.json();
-  const product = responseJson.data.productCreate.product;
-  const variantId = product.variants.edges[0].node.id;
-  const variantResponse = await admin.graphql(
-    `#graphql
-    mutation shopifyReactRouterTemplateUpdateVariant($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
-      productVariantsBulkUpdate(productId: $productId, variants: $variants) {
-        productVariants {
-          id
-          price
-          barcode
-          createdAt
-        }
-      }
-    }`,
-    {
-      variables: {
-        productId: product.id,
-        variants: [{ id: variantId, price: "100.00" }],
-      },
-    },
-  );
-  const variantResponseJson = await variantResponse.json();
-  const metaobjectResponse = await admin.graphql(
-    `#graphql
-    mutation shopifyReactRouterTemplateUpsertMetaobject($handle: MetaobjectHandleInput!, $metaobject: MetaobjectUpsertInput!) {
-      metaobjectUpsert(handle: $handle, metaobject: $metaobject) {
-        metaobject {
-          id
-          handle
-          title: field(key: "title") {
-            jsonValue
-          }
-          description: field(key: "description") {
-            jsonValue
-          }
-        }
-        userErrors {
-          field
-          message
-        }
-      }
-    }`,
-    {
-      variables: {
-        handle: {
-          type: "$app:example",
-          handle: "demo-entry",
-        },
-        metaobject: {
-          fields: [
-            { key: "title", value: "Demo Entry" },
-            {
-              key: "description",
-              value:
-                "This metaobject was created by the Shopify app template to demonstrate the metaobject API.",
-            },
-          ],
-        },
-      },
-    },
-  );
-  const metaobjectResponseJson = await metaobjectResponse.json();
-
-  return {
-    product: responseJson.data.productCreate.product,
-    variant: variantResponseJson.data.productVariantsBulkUpdate.productVariants,
-    metaobject: metaobjectResponseJson.data.metaobjectUpsert.metaobject,
-  };
+export const loader = async ({ request }) => {
+  const { session } = await authenticate.admin(request);
+  const banners = await prisma.app_banner.findMany({
+    where: { shop: session.shop },
+    orderBy: { createdAt: "desc" },
+  });
+  return banners;
 };
 
-export default function Index() {
-  const fetcher = useFetcher();
-  const shopify = useAppBridge();
-  const isLoading =
-    ["loading", "submitting"].includes(fetcher.state) &&
-    fetcher.formMethod === "POST";
-
-  useEffect(() => {
-    if (fetcher.data?.product?.id) {
-      shopify.toast.show("Product created");
-    }
-  }, [fetcher.data?.product?.id, shopify]);
-  const generateProduct = () => fetcher.submit({}, { method: "POST" });
+function RowActionMenu({ banner, navigate, fetcher }) {
+  const [active, setActive] = useState(false);
+  const toggleActive = useCallback(() => setActive((prev) => !prev), []);
+  const close = useCallback(() => setActive(false), []);
 
   return (
-    <s-page heading="Shopify app template">
-      <s-button slot="primary-action" onClick={generateProduct}>
-        Generate a product
-      </s-button>
-
-      <s-section heading="Congrats on creating a new Shopify app 🎉">
-        <s-paragraph>
-          This embedded app template uses{" "}
-          <s-link
-            href="https://shopify.dev/docs/apps/tools/app-bridge"
-            target="_blank"
-          >
-            App Bridge
-          </s-link>{" "}
-          interface examples like an{" "}
-          <s-link href="/app/additional">additional page in the app nav</s-link>
-          , as well as an{" "}
-          <s-link
-            href="https://shopify.dev/docs/api/admin-graphql"
-            target="_blank"
-          >
-            Admin GraphQL
-          </s-link>{" "}
-          mutation demo, to provide a starting point for app development.
-        </s-paragraph>
-      </s-section>
-      <s-section heading="Get started with products">
-        <s-paragraph>
-          Generate a product with GraphQL and get the JSON output for that
-          product. Learn more about the{" "}
-          <s-link
-            href="https://shopify.dev/docs/api/admin-graphql/latest/mutations/productCreate"
-            target="_blank"
-          >
-            productCreate
-          </s-link>{" "}
-          mutation in our API references. Includes a product{" "}
-          <s-link
-            href="https://shopify.dev/docs/apps/build/custom-data/metafields"
-            target="_blank"
-          >
-            metafield
-          </s-link>{" "}
-          and{" "}
-          <s-link
-            href="https://shopify.dev/docs/apps/build/custom-data/metaobjects"
-            target="_blank"
-          >
-            metaobject
-          </s-link>
-          .
-        </s-paragraph>
-        <s-stack direction="inline" gap="base">
-          <s-button
-            onClick={generateProduct}
-            {...(isLoading ? { loading: true } : {})}
-          >
-            Generate a product
-          </s-button>
-          {fetcher.data?.product && (
-            <s-button
-              onClick={() => {
-                shopify.intents.invoke?.("edit:shopify/Product", {
-                  value: fetcher.data?.product?.id,
-                });
-              }}
-              target="_blank"
-              variant="tertiary"
-            >
-              Edit product
-            </s-button>
-          )}
-        </s-stack>
-        {fetcher.data?.product && (
-          <s-section heading="productCreate mutation">
-            <s-stack direction="block" gap="base">
-              <s-box
-                padding="base"
-                borderWidth="base"
-                borderRadius="base"
-                background="subdued"
-              >
-                <pre style={{ margin: 0 }}>
-                  <code>{JSON.stringify(fetcher.data.product, null, 2)}</code>
-                </pre>
-              </s-box>
-
-              <s-heading>productVariantsBulkUpdate mutation</s-heading>
-              <s-box
-                padding="base"
-                borderWidth="base"
-                borderRadius="base"
-                background="subdued"
-              >
-                <pre style={{ margin: 0 }}>
-                  <code>{JSON.stringify(fetcher.data.variant, null, 2)}</code>
-                </pre>
-              </s-box>
-
-              <s-heading>metaobjectUpsert mutation</s-heading>
-              <s-box
-                padding="base"
-                borderWidth="base"
-                borderRadius="base"
-                background="subdued"
-              >
-                <pre style={{ margin: 0 }}>
-                  <code>
-                    {JSON.stringify(fetcher.data.metaobject, null, 2)}
-                  </code>
-                </pre>
-              </s-box>
-            </s-stack>
-          </s-section>
-        )}
-      </s-section>
-
-      <s-section slot="aside" heading="App template specs">
-        <s-paragraph>
-          <s-text>Framework: </s-text>
-          <s-link href="https://reactrouter.com/" target="_blank">
-            React Router
-          </s-link>
-        </s-paragraph>
-        <s-paragraph>
-          <s-text>Interface: </s-text>
-          <s-link
-            href="https://shopify.dev/docs/api/app-home/using-polaris-components"
-            target="_blank"
-          >
-            Polaris web components
-          </s-link>
-        </s-paragraph>
-        <s-paragraph>
-          <s-text>API: </s-text>
-          <s-link
-            href="https://shopify.dev/docs/api/admin-graphql"
-            target="_blank"
-          >
-            GraphQL
-          </s-link>
-        </s-paragraph>
-        <s-paragraph>
-          <s-text>Custom data: </s-text>
-          <s-link
-            href="https://shopify.dev/docs/apps/build/custom-data"
-            target="_blank"
-          >
-            Metafields &amp; metaobjects
-          </s-link>
-        </s-paragraph>
-        <s-paragraph>
-          <s-text>Database: </s-text>
-          <s-link href="https://www.prisma.io/" target="_blank">
-            Prisma
-          </s-link>
-        </s-paragraph>
-      </s-section>
-
-      <s-section slot="aside" heading="Next steps">
-        <s-unordered-list>
-          <s-list-item>
-            Build an{" "}
-            <s-link
-              href="https://shopify.dev/docs/apps/getting-started/build-app-example"
-              target="_blank"
-            >
-              example app
-            </s-link>
-          </s-list-item>
-          <s-list-item>
-            Explore Shopify&apos;s API with{" "}
-            <s-link
-              href="https://shopify.dev/docs/apps/tools/graphiql-admin-api"
-              target="_blank"
-            >
-              GraphiQL
-            </s-link>
-          </s-list-item>
-        </s-unordered-list>
-      </s-section>
-    </s-page>
+    <div onClick={(e) => e.stopPropagation()}>
+      <Popover
+        active={active}
+        activator={
+          <Button variant="plain" icon={MenuHorizontalIcon} onClick={toggleActive} />
+        }
+        onClose={close}
+      >
+        <ActionList
+          items={[
+            {
+              content: "Edit",
+              onAction: () => navigate(`/app/settingPage?id=${banner.id}`),
+            },
+            {
+              content: "Duplicate",
+              onAction: () => {
+                const formData = new FormData();
+                formData.append("id", banner.id);
+                formData.append("intent", "duplicate");
+                fetcher.submit(formData, { method: "post" });
+              },
+            },
+            {
+              content: "Delete",
+              destructive: true,
+              onAction: () => {
+                if (!confirm("Delete this banner?")) return;
+                const formData = new FormData();
+                formData.append("id", banner.id);
+                formData.append("intent", "delete");
+                fetcher.submit(formData, { method: "post" });
+              },
+            },
+          ]}
+        />
+      </Popover>
+    </div>
   );
 }
 
-export const headers = (headersArgs) => {
-  return boundary.headers(headersArgs);
-};
+export default function Homepage() {
+  const navigate = useNavigate();
+  const banners = useLoaderData();
+  const fetcher = useFetcher();
+
+  const resourceName = { singular: "banner", plural: "banners" };
+
+  const {
+    selectedResources,
+    allResourcesSelected,
+    handleSelectionChange,
+  } = useIndexResourceState(banners);
+
+  const rowMarkup = banners.map((banner, index) => (
+    <IndexTable.Row
+      id={banner.id.toString()}
+      key={banner.id}
+      selected={selectedResources.includes(banner.id.toString())}
+      position={index}
+      onClick={() => navigate(`/app/settingPage?id=${banner.id}`)}
+    >
+      <IndexTable.Cell>
+        <Text variant="bodyMd" fontWeight="semibold">
+          {banner.title}
+        </Text>
+      </IndexTable.Cell>
+
+      <IndexTable.Cell>
+        <Text tone="subdued" variant="bodySm">
+          {banner.content}
+        </Text>
+      </IndexTable.Cell>
+
+      <IndexTable.Cell>
+        <Badge tone="info">{banner.size || "Bar"}</Badge>
+      </IndexTable.Cell>
+
+      <IndexTable.Cell>
+        <Badge tone={banner.status ? "success" : "critical"}>
+          {banner.status ? "Active" : "Disabled"}
+        </Badge>
+      </IndexTable.Cell>
+
+      <IndexTable.Cell>
+        <RowActionMenu banner={banner} navigate={navigate} fetcher={fetcher} />
+      </IndexTable.Cell>
+    </IndexTable.Row>
+  ));
+
+  return (
+    <Page
+      title="GSC Countdown Timer"
+      subtitle="Manage your countdown widgets"
+      primaryAction={{
+        content: "Create widget",
+        onAction: () => navigate("/app/settingPage"),
+      }}
+    >
+      <Layout>
+        <Layout.Section>
+          <Card>
+            <Box padding="600">
+              <BlockStack gap="400">
+                <Text variant="headingMd">Activate the app in your theme</Text>
+                <Text variant="bodyMd" tone="subdued">
+                  To use widgets, click 'Activate', enable app embed, then click 'Save' in the theme editor
+                </Text>
+                <Button variant="primary" size="large">
+                  Activate
+                </Button>
+              </BlockStack>
+            </Box>
+          </Card>
+        </Layout.Section>
+
+
+        <Layout.Section>
+          <InlineStack gap="400" wrap={false}>
+            <Card>
+              <Box padding="500">
+                <BlockStack gap="200">
+                  <Text variant="bodySm" tone="subdued">Active widgets</Text>
+                  <Text variant="heading2xl" fontWeight="bold" tone="success">
+                    {banners.filter((b) => b.status).length}
+                  </Text>
+                </BlockStack>
+              </Box>
+            </Card>
+
+            <Card>
+              <Box padding="500">
+                <BlockStack gap="200">
+                  <Text variant="bodySm" tone="subdued">Total widgets</Text>
+                  <Text variant="heading2xl" fontWeight="bold">
+                    {banners.length}
+                  </Text>
+                </BlockStack>
+              </Box>
+            </Card>
+          </InlineStack>
+        </Layout.Section>
+
+
+        <Layout.Section>
+          <Card>
+            <IndexTable
+              resourceName={resourceName}
+              itemCount={banners.length}
+              selectedItemsCount={
+                allResourcesSelected ? "All" : selectedResources.length
+              }
+              onSelectionChange={handleSelectionChange}
+              headings={[
+                { title: "Widget name" },
+                { title: "Description" },
+                { title: "Type" },
+                { title: "Status" },
+                { title: "" },
+              ]}
+              emptyState={
+                <EmptyState
+                  heading="No widgets yet"
+                  action={{
+                    content: "Create your first widget",
+                    onAction: () => navigate("/app/settingPage"),
+                  }}
+                >
+                  <p>Start creating beautiful countdown timers for your store.</p>
+                </EmptyState>
+              }
+            >
+              {rowMarkup}
+            </IndexTable>
+          </Card>
+        </Layout.Section>
+
+        <Layout.Section>
+          <Divider />
+        </Layout.Section>
+
+  
+        <Layout.Section>
+          <Card>
+            <div style={{ padding: "16px", textAlign: "center" }}>
+              <InlineStack gap="400" align="center">
+                <Button variant="plain" onClick={() => navigate("/app/faq")}>
+                  View FAQ
+                </Button>
+
+                <Button
+                  variant="plain"
+                  onClick={() => navigate("/app/manual")}
+                >
+                  View user manual
+                </Button>
+
+                <Button
+                  variant="plain"
+                  onClick={() => navigate("/app/updates")}
+                >
+                  Join us on X for updates
+                </Button>
+              </InlineStack>
+            </div>
+          </Card>
+        </Layout.Section>
+      </Layout>
+    </Page>
+  );
+}

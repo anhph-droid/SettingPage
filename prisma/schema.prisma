@@ -51,7 +51,7 @@ model app_settings {
 }
 model app_banner {
   id              Int      @id @default(autoincrement())
-  shop            String   @unique
+  shop            String   
   title           String
   content         String
   color           String
