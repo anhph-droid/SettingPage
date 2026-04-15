@@ -201,14 +201,14 @@ export default function Homepage() {
       subtitle="Manage your countdown widgets"
       secondaryActions={[
         {
-          content: `Delete selected `,
+          content: `Delete`,
           onAction: handleBulkDelete,
           destructive: true,
           disabled: selectedResources.length === 0 || fetcher.state === "submitting",
         },
       ]}
       primaryAction={{
-        content: "Create banner",
+        content: "Create",
         onAction: () => navigate("/app/settingPage"),
       }}
     >

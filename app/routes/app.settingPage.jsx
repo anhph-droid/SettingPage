@@ -75,7 +75,7 @@ export const loader = async ({ request }) => {
     banner = await prisma.app_banner.findUnique({
       where: { id: Number(id) },
     });
-  }
+  }  
 
   const response = await admin.graphql(`
     query ProductPickerProducts {
@@ -239,7 +239,7 @@ export default function SettingPage() {
 
   return (
     <Page
-      title={initialSettings ? "Edit Widget" : "Create New Widget"}
+      title={initialSettings ? "Settings Widget" : "Create New Widget"}
       backAction={{ content: "Back", onAction: () => navigate(-1) }}
     >
       <div style={{ display: "grid", gap: "24px", gridTemplateColumns: "2fr 1fr" }}>
