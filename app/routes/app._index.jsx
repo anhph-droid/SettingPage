@@ -156,38 +156,27 @@ export default function Homepage() {
       </IndexTable.Cell>
 
       <IndexTable.Cell>
-        <RowActionMenu banner={banner} navigate={navigate} fetcher={fetcher} />
+
+        <RowActionMenu 
+        banner={banner} 
+        navigate={navigate} 
+        fetcher={fetcher} />
+
       </IndexTable.Cell>
+      
     </IndexTable.Row>
   ));
 
   return (
     <Page
-      title="GSC Countdown Timer"
+      title="Củ Khoai APP countdown "
       subtitle="Manage your countdown widgets"
       primaryAction={{
-        content: "Create widget",
+        content: "Create banner",
         onAction: () => navigate("/app/settingPage"),
       }}
     >
       <Layout>
-        <Layout.Section>
-          <Card>
-            <Box padding="600">
-              <BlockStack gap="400">
-                <Text variant="headingMd">Activate the app in your theme</Text>
-                <Text variant="bodyMd" tone="subdued">
-                  To use widgets, click 'Activate', enable app embed, then click 'Save' in the theme editor
-                </Text>
-                <Button variant="primary" size="large">
-                  Activate
-                </Button>
-              </BlockStack>
-            </Box>
-          </Card>
-        </Layout.Section>
-
-
         <Layout.Section>
           <InlineStack gap="400" wrap={false}>
             <Card>
@@ -198,7 +187,7 @@ export default function Homepage() {
                     {banners.filter((b) => b.status).length}
                   </Text>
                 </BlockStack>
-              </Box>
+              </Box>  
             </Card>
 
             <Card>
@@ -230,7 +219,7 @@ export default function Homepage() {
                 { title: "Type" },
                 { title: "Status" },
                 { title: "" },
-              ]}
+              ]}      
               emptyState={
                 <EmptyState
                   heading="No widgets yet"
@@ -247,14 +236,8 @@ export default function Homepage() {
             </IndexTable>
           </Card>
         </Layout.Section>
-
-        <Layout.Section>
-          <Divider />
-        </Layout.Section>
-
   
         <Layout.Section>
-          <Card>
             <div style={{ padding: "16px", textAlign: "center" }}>
               <InlineStack gap="400" align="center">
                 <Button variant="plain" onClick={() => navigate("/app/faq")}>
@@ -276,7 +259,7 @@ export default function Homepage() {
                 </Button>
               </InlineStack>
             </div>
-          </Card>
+    
         </Layout.Section>
       </Layout>
     </Page>

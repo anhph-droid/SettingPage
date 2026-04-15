@@ -25,11 +25,22 @@ import {
 import { useState, useEffect } from "react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 
+const FONT_OPTIONS = [
+  { label: "Playfair Display", value: "'Playfair Display', serif" },
+  { label: "Bebas Neue", value: "'Bebas Neue', sans-serif" },
+  { label: "Montserrat", value: "'Montserrat', sans-serif" },
+  { label: "Poppins", value: "'Poppins', sans-serif" },
+  { label: "Inter", value: "Inter, sans-serif" },
+  { label: "Lora", value: "'Lora', serif" },
+];
+
 const DEFAULT_SETTINGS = {
   title: "Input your title here",
   content: "Input your content here",
   backgroundColor: "#f3f0ff",
   color: "#000000",
+  titleFont: "'Playfair Display', serif",
+  contentFont: "Inter, sans-serif",
   size: "medium",
   position: "top",
   priority: 0,
@@ -38,7 +49,7 @@ const DEFAULT_SETTINGS = {
 };
 
 export const loader = async ({ request }) => {
-  const { session } = await authenticate.admin(request);
+  await authenticate.admin(request);
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
 
@@ -68,7 +79,7 @@ export const action = async ({ request }) => {
   const dismissible = formData.get("dismissible") === "true";
 
   const timeEndStr = formData.get("timeEnd")?.toString().trim();
-
+  
   const data = {
     shop: session.shop,
     title,
@@ -109,10 +120,16 @@ export default function SettingPage() {
   const [backgroundColor, setBackgroundColor] = useState(
     initialSettings?.backgroundColor || DEFAULT_SETTINGS.backgroundColor
   );
+  const [titleFont, setTitleFont] = useState(
+    initialSettings?.titleFont || DEFAULT_SETTINGS.titleFont
+  );
+  const [contentFont, setContentFont] = useState(
+    initialSettings?.contentFont || DEFAULT_SETTINGS.contentFont
+  );
   const [size, setSize] = useState(initialSettings?.size || DEFAULT_SETTINGS.size);
   const [position, setPosition] = useState(initialSettings?.position || DEFAULT_SETTINGS.position);
   const [priority, setPriority] = useState(initialSettings?.priority || DEFAULT_SETTINGS.priority);
-  const [status, setStatus] = useState(initialSettings?.status ?? DEFAULT_SETTINGS.status);
+  const [status, setStatus] = useState( initialSettings?.status ?? DEFAULT_SETTINGS.status );
   const [dismissible, setDismissible] = useState(initialSettings?.dismissible ?? DEFAULT_SETTINGS.dismissible);
 
   const [timeEnd, setTimeEnd] = useState(
@@ -134,10 +151,6 @@ export default function SettingPage() {
     }
   }, [fetcher.data, shopify, navigate, initialSettings]);
 
-  const handleSubmit = (e) => {
-    // Remix sẽ tự handle form
-  };
-
   return (
     <Page
       title={initialSettings ? "Edit Widget" : "Create New Widget"}
@@ -146,7 +159,7 @@ export default function SettingPage() {
       <div style={{ display: "grid", gap: "24px", gridTemplateColumns: "2fr 1fr" }}>
         
         {/* Form Section */}
-        <fetcher.Form method="post" onSubmit={handleSubmit}>
+        <fetcher.Form method="post">
           <input type="hidden" name="id" value={initialSettings?.id || ""} />
 
           <Card>
@@ -205,6 +218,24 @@ export default function SettingPage() {
 
                 <FormLayout.Group>
                   <Select
+                    label="Title Font"
+                    name="titleFont"
+                    value={titleFont}
+                    onChange={setTitleFont}
+                    options={FONT_OPTIONS}
+                  />
+
+                  <Select
+                    label="Content Font"
+                    name="contentFont"
+                    value={contentFont}
+                    onChange={setContentFont}
+                    options={FONT_OPTIONS}
+                  />
+                </FormLayout.Group>
+
+                <FormLayout.Group>
+                  <Select
                     label="Size"
                     name="size"
                     value={size}
@@ -238,16 +269,26 @@ export default function SettingPage() {
 
                 <Checkbox
                   label="Active (Status)"
-                  name="status"
                   checked={status}
-                  onChange={setStatus}
+                  onChange={(value) => setStatus(value)}
+                />
+
+                <input
+                  type="hidden"
+                  name="status"
+                  value={status ? "true" : "false"}
                 />
 
                 <Checkbox
                   label="Dismissible (user can close)"
-                  name="dismissible"
                   checked={dismissible}
-                  onChange={setDismissible}
+                  onChange={(value) => setDismissible(value)}
+                />
+
+                <input
+                  type="hidden"
+                  name="dismissible"
+                  value={dismissible ? "true" : "false"}
                 />
 
                 <FormLayout.Group>
@@ -294,18 +335,35 @@ export default function SettingPage() {
                 justifyContent: "center",
               }}
             >
-              <Text variant="headingLg" fontWeight="bold" as="h3">
+              <h3
+                style={{
+                  margin: 0,
+                  fontFamily: titleFont,
+                  fontSize: size === "large" ? "2rem" : size === "medium" ? "1.6rem" : "1.3rem",
+                  fontWeight: 700,
+                  lineHeight: 1.2,
+                }}
+              >
                 {title}
-              </Text>
-              <Text variant="bodyMd" style={{ marginTop: "8px", opacity: 0.9 }}>
+              </h3>
+              <p
+                style={{
+                  marginTop: "8px",
+                  marginBottom: 0,
+                  opacity: 0.9,
+                  fontFamily: contentFont,
+                  fontSize: size === "large" ? "1.05rem" : size === "medium" ? "0.95rem" : "0.9rem",
+                  lineHeight: 1.5,
+                }}
+              >
                 {content}
-              </Text>
+              </p>
               {link && (
                 <Button plain monochrome style={{ marginTop: "12px" }}>
                   Learn more →
                 </Button>
               )}
-            </div>
+            </div>  
 
             <Card subdued>
               <BlockStack gap="200">
