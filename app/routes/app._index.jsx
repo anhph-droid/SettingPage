@@ -36,6 +36,24 @@ export const action = async ({ request }) => {
     return { ok: true };
   }
 
+  if (intent === "bulk-delete") {
+    const ids = formData
+      .getAll("ids")
+      .map((value) => Number(value))
+      .filter((value) => Number.isInteger(value) && value > 0);
+
+    if (ids.length === 0) return { ok: false };
+
+    await prisma.app_banner.deleteMany({
+      where: {
+        id: { in: ids },
+        shop: session.shop,
+      },
+    });
+
+    return { ok: true };
+  }
+
   if (intent === "duplicate") {
     const id = Number(formData.get("id"));
     const banner = await prisma.app_banner.findUnique({ where: { id } });
@@ -125,6 +143,16 @@ export default function Homepage() {
     handleSelectionChange,
   } = useIndexResourceState(banners);
 
+  const handleBulkDelete = () => {
+    if (selectedResources.length === 0) return;
+    if (!confirm(`Delete ${selectedResources.length} selected widget?`)) return;
+
+    const formData = new FormData();
+    formData.append("intent", "bulk-delete");
+    selectedResources.forEach((id) => formData.append("ids", id));
+    fetcher.submit(formData, { method: "post" });
+  };
+
   const rowMarkup = banners.map((banner, index) => (
     <IndexTable.Row
       id={banner.id.toString()}
@@ -171,6 +199,14 @@ export default function Homepage() {
     <Page
       title="Củ Khoai APP countdown "
       subtitle="Manage your countdown widgets"
+      secondaryActions={[
+        {
+          content: `Delete selected `,
+          onAction: handleBulkDelete,
+          destructive: true,
+          disabled: selectedResources.length === 0 || fetcher.state === "submitting",
+        },
+      ]}
       primaryAction={{
         content: "Create banner",
         onAction: () => navigate("/app/settingPage"),
@@ -202,38 +238,38 @@ export default function Homepage() {
             </Card>
           </InlineStack>
         </Layout.Section>
-
-
+        
         <Layout.Section>
           <Card>
-            <IndexTable
-              resourceName={resourceName}
-              itemCount={banners.length}
-              selectedItemsCount={
-                allResourcesSelected ? "All" : selectedResources.length
-              }
-              onSelectionChange={handleSelectionChange}
-              headings={[
-                { title: "Widget name" },
-                { title: "Description" },
-                { title: "Type" },
-                { title: "Status" },
-                { title: "" },
-              ]}      
-              emptyState={
-                <EmptyState
-                  heading="No widgets yet"
-                  action={{
-                    content: "Create your first widget",
-                    onAction: () => navigate("/app/settingPage"),
-                  }}
-                >
-                  <p>Start creating beautiful countdown timers for your store.</p>
-                </EmptyState>
-              }
-            >
-              {rowMarkup}
-            </IndexTable>
+            {banners.length === 0 ? (
+              <EmptyState
+                heading="No widgets yet"
+                action={{
+                  content: "Create your first widget",
+                  onAction: () => navigate("/app/settingPage"),
+                }}
+              >
+                <p>Start creating beautiful countdown timers for your store.</p>
+              </EmptyState>
+            ) : (
+              <IndexTable
+                resourceName={resourceName}
+                itemCount={banners.length}
+                selectedItemsCount={
+                  allResourcesSelected ? "All" : selectedResources.length
+                }
+                onSelectionChange={handleSelectionChange}
+                headings={[
+                  { title: "Widget name" },
+                  { title: "Description" },
+                  { title: "Type" },
+                  { title: "Status" },
+                  { title: "" },
+                ]}
+              >
+                {rowMarkup}
+              </IndexTable>
+            )}
           </Card>
         </Layout.Section>
   

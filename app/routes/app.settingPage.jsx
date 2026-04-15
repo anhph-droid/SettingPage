@@ -49,17 +49,49 @@ const DEFAULT_SETTINGS = {
 };
 
 export const loader = async ({ request }) => {
-  await authenticate.admin(request);
+  const { admin } = await authenticate.admin(request);
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
+  let banner = null;
 
   if (id) {
-    const banner = await prisma.app_banner.findUnique({
+    banner = await prisma.app_banner.findUnique({
       where: { id: Number(id) },
     });
-    return banner;
   }
-  return null;
+
+  const response = await admin.graphql(`
+    query ProductPickerProducts {
+      products(first: 30, sortKey: UPDATED_AT, reverse: true) {
+        edges {
+          node {
+            id
+            title
+            handle
+            status
+            featuredImage {
+              url
+              altText
+            }
+          }
+        }
+      }
+    }
+  `);
+
+  const responseJson = await response.json();
+  const products =
+    responseJson.data?.products?.edges?.map(({ node }) => ({
+      id: node.id,
+      title: node.title,
+      handle: node.handle,
+      status: node.status,
+      imageUrl: node.featuredImage?.url || "",
+      imageAlt: node.featuredImage?.altText || node.title,
+      path: `/products/${node.handle}`,
+    })) || [];
+
+  return { banner, products };
 };
 
 export const action = async ({ request }) => {
@@ -109,7 +141,7 @@ export const action = async ({ request }) => {
 
 export default function SettingPage() {
   const navigate = useNavigate();
-  const initialSettings = useLoaderData();
+  const { banner: initialSettings, products } = useLoaderData();
   const fetcher = useFetcher();
   const shopify = useAppBridge();
 
@@ -131,6 +163,7 @@ export default function SettingPage() {
   const [priority, setPriority] = useState(initialSettings?.priority || DEFAULT_SETTINGS.priority);
   const [status, setStatus] = useState( initialSettings?.status ?? DEFAULT_SETTINGS.status );
   const [dismissible, setDismissible] = useState(initialSettings?.dismissible ?? DEFAULT_SETTINGS.dismissible);
+  const [selectedProductId, setSelectedProductId] = useState("");
 
   const [timeEnd, setTimeEnd] = useState(
     initialSettings?.timeEnd
@@ -144,12 +177,35 @@ export default function SettingPage() {
   useEffect(() => {
     if (fetcher.data?.ok) {
       shopify.toast.show("Settings saved successfully!", { duration: 3000 });
-      if (!initialSettings?.id) navigate(-1); // Quay lại sau khi tạo mới
+      if (!initialSettings?.id) navigate(-1); 
     }
     if (fetcher.data?.errors) {
       shopify.toast.show(fetcher.data.errors.general || "Save failed", { isError: true });
     }
   }, [fetcher.data, shopify, navigate, initialSettings]);
+
+  useEffect(() => {
+    const matchedProduct =
+      products.find((product) => product.path === link || link.endsWith(product.path)) || null;
+    setSelectedProductId(matchedProduct?.id || "");
+  }, [link, products]);
+
+  const handleProductChange = (value) => {
+    setSelectedProductId(value);
+    const product = products.find((item) => item.id === value);
+    if (!product) return;
+    setLink(product.path);
+  };
+
+  const productOptions = [
+    { label: "Select a product", value: "" },
+    ...products.map((product) => ({
+      label: `${product.title} (${product.status})`,
+      value: product.id,
+    })),
+  ];
+  const selectedProduct =
+    products.find((product) => product.id === selectedProductId) || null;
 
   return (
     <Page
@@ -191,6 +247,48 @@ export default function SettingPage() {
                   onChange={setLink}
                   placeholder="https://yourstore.com/sale"
                 />
+
+                <Select
+                  label="Browse Product"
+                  value={selectedProductId}
+                  onChange={handleProductChange}
+                  options={productOptions}
+                  helpText="Select a product from your store to fill the link automatically."
+                />
+
+                {selectedProductId ? (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                      padding: "12px",
+                      border: "1px solid #dfe3e8",
+                      borderRadius: "10px",
+                    }}
+                  >
+                    {selectedProduct?.imageUrl ? (
+                      <img
+                        src={selectedProduct.imageUrl}
+                        alt={selectedProduct.imageAlt}
+                        style={{
+                          width: "56px",
+                          height: "56px",
+                          objectFit: "cover",
+                          borderRadius: "8px",
+                        }}
+                      />
+                    ) : null}
+                    <div>
+                      <Text variant="bodyMd" fontWeight="medium">
+                        {selectedProduct?.title}
+                      </Text>
+                      <Text variant="bodySm" tone="subdued">
+                        {selectedProduct?.path}
+                      </Text>
+                    </div>
+                  </div>
+                ) : null}
 
                 <FormLayout.Group>
                   <div>
@@ -301,7 +399,6 @@ export default function SettingPage() {
                   />
                 </FormLayout.Group>
               </FormLayout>
-
               <Divider />
 
               <InlineStack align="end">
@@ -358,11 +455,7 @@ export default function SettingPage() {
               >
                 {content}
               </p>
-              {link && (
-                <Button plain monochrome style={{ marginTop: "12px" }}>
-                  Learn more →
-                </Button>
-              )}
+              
             </div>  
 
             <Card subdued>
@@ -372,7 +465,6 @@ export default function SettingPage() {
                 <Text>Position: <strong>{position}</strong></Text>
                 <Text>Priority: <strong>{priority}</strong></Text>
                 <Text>Status: <strong>{status ? "Active" : "Disabled"}</strong></Text>
-                <Text>Dismissible: <strong>{dismissible ? "Yes" : "No"}</strong></Text>
                 {timeEnd && (
                   <Text>End Time: <strong>{new Date(timeEnd).toLocaleString()}</strong></Text>
                 )}
