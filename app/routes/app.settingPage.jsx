@@ -48,6 +48,23 @@ const DEFAULT_SETTINGS = {
   dismissible: false,
 };
 
+function getRemainingTimeParts(timeEndValue, now) {
+  if (!timeEndValue) return null;
+
+  const endTime = new Date(timeEndValue).getTime();
+  if (Number.isNaN(endTime)) return null;
+
+  const distance = Math.max(endTime - now, 0);
+
+  return {
+    expired: distance === 0,
+    days: Math.floor(distance / 86400000),
+    hours: Math.floor((distance % 86400000) / 3600000),
+    minutes: Math.floor((distance % 3600000) / 60000),
+    seconds: Math.floor((distance % 60000) / 1000),
+  };
+}
+
 export const loader = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
   const url = new URL(request.url);
@@ -170,6 +187,7 @@ export default function SettingPage() {
       ? new Date(initialSettings.timeEnd).toISOString().slice(0, 16)
       : ""
   );
+  const [now, setNow] = useState(Date.now());
 
   const isSaving = fetcher.state === "submitting";
 
@@ -183,12 +201,23 @@ export default function SettingPage() {
       shopify.toast.show(fetcher.data.errors.general || "Save failed", { isError: true });
     }
   }, [fetcher.data, shopify, navigate, initialSettings]);
-
+// select product
   useEffect(() => {
     const matchedProduct =
       products.find((product) => product.path === link || link.endsWith(product.path)) || null;
     setSelectedProductId(matchedProduct?.id || "");
   }, [link, products]);
+ // time 
+  useEffect(() => {
+    if (!timeEnd) return undefined;
+
+    setNow(Date.now());
+    const intervalId = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [timeEnd]);
 
   const handleProductChange = (value) => {
     setSelectedProductId(value);
@@ -206,6 +235,7 @@ export default function SettingPage() {
   ];
   const selectedProduct =
     products.find((product) => product.id === selectedProductId) || null;
+  const remainingTime = getRemainingTimeParts(timeEnd, now);
 
   return (
     <Page
@@ -455,12 +485,74 @@ export default function SettingPage() {
               >
                 {content}
               </p>
+
+              {remainingTime ? (
+                <div
+                  style={{
+                    marginTop: "18px",
+                    display: "grid",
+                    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                    gap: "10px",
+                  }}
+                >
+                  {remainingTime.expired ? (
+                    <div
+                      style={{
+                        gridColumn: "1 / -1",
+                        padding: "12px",
+                        borderRadius: "10px",
+                        backgroundColor: "rgba(255,255,255,0.18)",
+                        fontFamily: contentFont,
+                        fontWeight: 600,
+                      }}
+                    >
+                      Countdown ended
+                    </div>
+                  ) : (
+                    [
+                      { label: "Days", value: remainingTime.days },
+                      { label: "Hours", value: remainingTime.hours },
+                      { label: "Minutes", value: remainingTime.minutes },
+                      { label: "Seconds", value: remainingTime.seconds },
+                    ].map((item) => (
+                      <div
+                        key={item.label}
+                        style={{
+                          padding: "12px 8px",
+                          borderRadius: "10px",
+                          backgroundColor: "rgba(255,255,255,0.18)",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontFamily: titleFont,
+                            fontSize: size === "large" ? "1.35rem" : "1.1rem",
+                            fontWeight: 700,
+                          }}
+                        >
+                          {String(item.value).padStart(2, "0")}
+                        </div>
+                        <div
+                          style={{
+                            marginTop: "4px",
+                            fontFamily: contentFont,
+                            fontSize: "0.8rem",
+                            opacity: 0.9,
+                          }}
+                        >
+                          {item.label}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              ) : null}
               
             </div>  
 
             <Card subdued>
               <BlockStack gap="200">
-                <Text variant="headingSm">Configuration Summary</Text>
+                <Text variant="headingSm">Configuration Summary : </Text>
                 <Text>Size: <strong>{size}</strong></Text>
                 <Text>Position: <strong>{position}</strong></Text>
                 <Text>Priority: <strong>{priority}</strong></Text>
