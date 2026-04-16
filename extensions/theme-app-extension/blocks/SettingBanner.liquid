@@ -1,51 +1,70 @@
 <div id="settings-banner-root" {{ block.shopify_attributes }}></div>
 
 <style>
+  body.settings-banner-visible {
+    padding-top: var(--settings-banner-offset, 0px) !important;
+    transition: padding-top 0.2s ease;
+  }
+
   #settings-banner-root {
     position: fixed;
-    left: 0;
-    right: 0;
+    inset: 0;
     z-index: 999999;
     pointer-events: none;
   }
 
-  .settings-banner {
+  .settings-banner-stack {
+    position: fixed;
+    left: 0;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    pointer-events: none;
+  }
 
+  .settings-banner-stack--top {
+    top: 0;
+  }
+
+  .settings-banner-stack--bottom {
+    bottom: 0;
+  }
+
+  .settings-banner {
     width: 100%;
     position: relative;
     pointer-events: auto;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    background: #f7f5f3;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   }
 
   .settings-banner__scroll {
-    white-space: nowrap;
-    overflow: hidden;
-    font-size: 11px;
-    line-height: 1.2;
+    display: none;
   }
 
-  .settings-banner__scroll span {
-    display: inline-block;
-    padding-left: 100%;
-    animation: settings-banner-scroll 18s linear infinite;
-    padding-top: 6px;
-    padding-bottom: 6px;
-    font-weight: 600;
-  }
-
-  .settings-banner__scroll--reverse span {
-    animation-direction: reverse;
+  .settings-banner__layout {
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 44px 6px 16px;
   }
 
   .settings-banner__content {
-    padding: 10px 36px 10px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    flex-wrap: wrap;
     text-align: center;
   }
 
   .settings-banner__title {
-    margin: 0 0 4px;
-    font-size: 16px;
-    line-height: 1.2;
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.1;
+    font-weight: 700;
   }
 
   .settings-banner__link {
@@ -55,35 +74,71 @@
 
   .settings-banner__text {
     margin: 0;
-    font-size: 13px;
-    line-height: 1.35;
+    font-size: 12px;
+    line-height: 1.2;
+    color: rgba(0, 0, 0, 0.8);
   }
 
   .settings-banner__countdown {
     display: flex;
-    justify-content: center;
-    gap: 6px;
-    margin-top: 6px;
-    font-size: 12px;
-    font-weight: 600;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+  }
+
+  .settings-banner__countdown-part {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+  }
+
+  .settings-banner__countdown-value {
+    min-width: 18px;
+    font-size: 13px;
+    line-height: 1;
+  }
+
+  .settings-banner__countdown-label {
+    font-size: 9px;
+    line-height: 1;
+    text-transform: lowercase;
+    color: rgba(0, 0, 0, 0.6);
   }
 
   .settings-banner__close {
     position: absolute;
-    top: 8px;
-    right: 10px;
+    top: 50%;
+    right: 12px;
+    transform: translateY(-50%);
     border: 0;
     background: transparent;
-    color: inherit;
-    font-size: 16px;
+    color: rgba(0, 0, 0, 0.35);
+    font-size: 28px;
     line-height: 1;
     cursor: pointer;
     padding: 0;
   }
 
-  @keyframes settings-banner-scroll {
-    from { transform: translateX(0); }
-    to { transform: translateX(-100%); }
+  .settings-banner__close:hover {
+    color: rgba(0, 0, 0, 0.65);
+  }
+
+  @media (max-width: 768px) {
+    .settings-banner__layout {
+      min-height: 56px;
+      padding: 8px 40px 8px 12px;
+    }
+
+    .settings-banner__content {
+      gap: 8px;
+      flex-direction: column;
+    }
+
+    .settings-banner__countdown {
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
   }
 </style>
 
@@ -137,27 +192,51 @@
       return false;
     }
 
-    function formatCountdown(endTime) {
-      const distance = endTime - Date.now();
-      if (distance <= 0) return "Ended";
-
-      const days = Math.floor(distance / 86400000);
-      const hours = Math.floor((distance % 86400000) / 3600000);
-      const minutes = Math.floor((distance % 3600000) / 60000);
-      const seconds = Math.floor((distance % 60000) / 1000);
-
-      return [
-        String(days).padStart(2, "0") + "d",
-        String(hours).padStart(2, "0") + "h",
-        String(minutes).padStart(2, "0") + "m",
-        String(seconds).padStart(2, "0") + "s",
-      ].join(" ");
+    function setBodyOffset() {
+      const topStack = root.querySelector(".settings-banner-stack--top");
+      const height = topStack ? topStack.offsetHeight : 0;
+      document.body.style.setProperty("--settings-banner-offset", height + "px");
+      document.body.classList.toggle("settings-banner-visible", height > 0);
     }
 
-    function renderBanner(banner) {
-      root.style.top = banner.position === "bottom" ? "auto" : "0";
-      root.style.bottom = banner.position === "bottom" ? "0" : "auto";
+    function clearBodyOffset() {
+      document.body.classList.remove("settings-banner-visible");
+      document.body.style.removeProperty("--settings-banner-offset");
+    }
 
+    function getCountdownParts(endTime) {
+      const distance = endTime - Date.now();
+      if (distance <= 0) return null;
+
+      return {
+        days: String(Math.floor(distance / 86400000)).padStart(2, "0"),
+        hours: String(Math.floor((distance % 86400000) / 3600000)).padStart(2, "0"),
+        mins: String(Math.floor((distance % 3600000) / 60000)).padStart(2, "0"),
+        secs: String(Math.floor((distance % 60000) / 1000)).padStart(2, "0"),
+      };
+    }
+
+    function formatCountdownMarkup(parts) {
+      if (!parts) {
+        return '<span class="settings-banner__text">Ended</span>';
+      }
+
+      return [
+        ["days", parts.days],
+        ["hours", parts.hours],
+        ["mins", parts.mins],
+        ["secs", parts.secs],
+      ].map(function (entry) {
+        return (
+          '<span class="settings-banner__countdown-part">' +
+          '<span class="settings-banner__countdown-value">' + entry[1] + '</span>' +
+          '<span class="settings-banner__countdown-label">' + entry[0] + "</span>" +
+          "</span>"
+        );
+      }).join("");
+    }
+
+    function createBannerNode(banner) {
       const wrapper = document.createElement("div");
       wrapper.className = "settings-banner";
       wrapper.style.background = banner.backgroundColor || "#f3f0ff";
@@ -168,31 +247,31 @@
       const titleMarkup = banner.link
         ? '<a class="settings-banner__link" href="' + banner.link + '">' + safeTitle + "</a>"
         : safeTitle;
+      const initialCountdownParts = banner.timeEnd
+        ? getCountdownParts(new Date(banner.timeEnd).getTime())
+        : null;
 
       wrapper.innerHTML =
-        '<div class="settings-banner__scroll"><span>' +
-        safeTitle + " - " + safeContent + "&nbsp;&nbsp;&nbsp;&nbsp;" +
-        safeTitle + " - " + safeContent +
-        "</span></div>" +
+        '<div class="settings-banner__layout">' +
         '<div class="settings-banner__content">' +
         '<h2 class="settings-banner__title">' + titleMarkup + "</h2>" +
-        '<p class="settings-banner__text">' + safeContent + "</p>" +
-        (banner.timeEnd ? '<div class="settings-banner__countdown" data-countdown></div>' : "") +
+        (banner.timeEnd
+          ? '<div class="settings-banner__countdown" data-countdown>' + formatCountdownMarkup(initialCountdownParts) + "</div>"
+          : '<p class="settings-banner__text">' + safeContent + "</p>") +
+        (banner.timeEnd && safeContent ? '<p class="settings-banner__text">' + safeContent + "</p>" : "") +
         "</div>" +
-        '<div class="settings-banner__scroll settings-banner__scroll--reverse"><span>' +
-        safeContent + " - " + safeTitle + "&nbsp;&nbsp;&nbsp;&nbsp;" +
-        safeContent + " - " + safeTitle +
-        "</span></div>";
+        "</div>";
 
       if (banner.dismissible) {
         const closeButton = document.createElement("button");
         closeButton.type = "button";
         closeButton.className = "settings-banner__close";
         closeButton.setAttribute("aria-label", "Close banner");
-        closeButton.textContent = "x";
+        closeButton.innerHTML = "&times;";
         closeButton.addEventListener("click", function () {
           sessionStorage.setItem(dismissedKey, String(banner.id));
           wrapper.remove();
+          setBodyOffset();
         });
         wrapper.appendChild(closeButton);
       }
@@ -202,7 +281,7 @@
         const endTime = new Date(banner.timeEnd).getTime();
         if (!Number.isNaN(endTime)) {
           const updateCountdown = function () {
-            countdownNode.textContent = formatCountdown(endTime);
+            countdownNode.innerHTML = formatCountdownMarkup(getCountdownParts(endTime));
           };
 
           updateCountdown();
@@ -210,7 +289,27 @@
         }
       }
 
-      root.replaceChildren(wrapper);
+      return wrapper;
+    }
+
+    function renderBanners(banners) {
+      const topStack = document.createElement("div");
+      topStack.className = "settings-banner-stack settings-banner-stack--top";
+
+      const bottomStack = document.createElement("div");
+      bottomStack.className = "settings-banner-stack settings-banner-stack--bottom";
+
+      banners.forEach(function (banner) {
+        const bannerNode = createBannerNode(banner);
+        if (banner.position === "bottom") {
+          bottomStack.appendChild(bannerNode);
+        } else {
+          topStack.appendChild(bannerNode);
+        }
+      });
+
+      root.replaceChildren(topStack, bottomStack);
+      setBodyOffset();
     }
 
     async function loadBanner() {
@@ -228,23 +327,26 @@
         const pathname = normalizePath(window.location.pathname);
         const dismissedBannerId = sessionStorage.getItem(dismissedKey);
         
-        const matchedBanner = (data.banners || []).find(function (banner) {
+        const matchedBanners = (data.banners || []).filter(function (banner) {
           if (!matchesTargetPage(banner.targetPage, pathname)) return false;
           if (dismissedBannerId && String(banner.id) === dismissedBannerId) return false;
           return true;
         });
 
-        if (!matchedBanner) {
+        if (!matchedBanners.length) {
           root.replaceChildren();
+          clearBodyOffset();
           return;
         }
 
-        renderBanner(matchedBanner);
+        renderBanners(matchedBanners);
       } catch (error) {
         console.error("Failed to load banner", error);
+        clearBodyOffset();
       }
     }
 
+    window.addEventListener("resize", setBodyOffset);
     loadBanner();
   })();
 </script>
