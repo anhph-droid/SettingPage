@@ -56,7 +56,8 @@ model app_banner {
   content         String
   color           String
   backgroundColor String
-  size            String
+  targetPage      String @default("all")   
+  size            String 
   link            String?   // optional
   position        String    @default("top")
   timeStart       DateTime? // optional

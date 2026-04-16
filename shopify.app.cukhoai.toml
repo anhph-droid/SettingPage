@@ -25,3 +25,8 @@ scopes = "write_metaobject_definitions,write_metaobjects,write_products"
 
 [auth]
 redirect_urls = [ "https://example.com/api/auth" ]
+
+[app_proxy]
+url = "/apps/settings"
+subpath = "settings"
+prefix = "apps"

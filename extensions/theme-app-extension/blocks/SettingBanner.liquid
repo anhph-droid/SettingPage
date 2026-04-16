@@ -1,126 +1,257 @@
-{% assign title      = shop.metafields.banner.title.value %}
-{% assign content    = shop.metafields.banner.content.value %}
-{% assign link       = shop.metafields.banner.link.value %}
-{% assign bg         = shop.metafields.banner.background_color.value %}
-{% assign color      = shop.metafields.banner.color.value %}
-{% assign time_end   = shop.metafields.banner.time_end.value %}
-{% assign status     = shop.metafields.banner.status.value %}
-
-
-<!-- ===== CSS ===== -->
+<div id="settings-banner-root" {{ block.shopify_attributes }}></div>
 
 <style>
-.banner-scroll {
-  white-space: nowrap;
-  overflow: hidden;
-}
-
-.banner-scroll span {
-  display: inline-block;
-  padding-left: 100%;
-  animation: scrollText 18s linear infinite;
-  font-weight: 600;
-}
-
-@keyframes scrollText {
-  from { transform: translateX(0); }
-  to { transform: translateX(-100%); }
-}
-</style>
-
-<!-- ===== banner run top ===== -->
-
-{% if status == true or status == "true" %}
-<div id="settings-banner" style="background:white ; color: {{ color }}; width: 100%; overflow: hidden;">
-
-  <div class="banner-scroll">
-    <span>
-      {{ title }} — {{ content }}
-      &nbsp;&nbsp;&nbsp;&nbsp;
-      {{ title }} — {{ content }}
-    </span>
-  </div>
-
-<!-- ===== body ===== -->
-
-<div id="settings-banner" style="background: {{ bg }}; color: {{ color }}; width: 100%; overflow: hidden;">
-  <div style="padding: 20px; text-align: center;">
-
-    <h2 style="margin: 0 0 10px 0;">
-      {% if link != blank %}
-        <a href="{{ link }}" style="color: inherit; text-decoration: none;">
-          {{ title }}
-        </a>
-      {% else %}
-        {{ title }}
-      {% endif %}
-    </h2>
-
-    <p>{{ content }}</p>
-
-    {% if time_end != blank %}
-      <div id="countdown">
-        <span id="days">00</span>d
-        <span id="hours">00</span>h
-        <span id="minutes">00</span>m
-        <span id="seconds">00</span>s
-      </div>
-    {% endif %}
-  </div>
-
-<!-- ===== banner run dươi ===== -->
-
-  <div style="background: white; color: {{ color }}; overflow: hidden;">
-  <div class="banner-scroll reverse">
-    <span>
-       {{ content }} — {{ title }} 
-      &nbsp;&nbsp;&nbsp;&nbsp;
-       {{ content }} — {{ title }} 
-    </span>
-  </div>
-</div>
-
-<!-- ===== COUNTDOWN ===== --> 
-
-{% if time_end != blank %}
-<script>
-(function() {
-  const endStr = "{{ time_end | date: '%Y-%m-%dT%H:%M:%S' }}";
-  if (!endStr) return;
-
-  const endTime = new Date(endStr).getTime();
-
-  function updateCountdown() {
-    const distance = endTime - Date.now();
-
-    if (distance <= 0) {
-      const el = document.getElementById('countdown');
-      if (el) el.innerHTML = 'Ended';
-      return;
-    }
-
-    const days    = Math.floor(distance / 86400000);
-    const hours   = Math.floor((distance % 86400000) / 3600000);
-    const minutes = Math.floor((distance % 3600000) / 60000);
-    const seconds = Math.floor((distance % 60000) / 1000);
-
-    document.getElementById('days').textContent = String(days).padStart(2,'0');
-    document.getElementById('hours').textContent = String(hours).padStart(2,'0');
-    document.getElementById('minutes').textContent = String(minutes).padStart(2,'0');
-    document.getElementById('seconds').textContent = String(seconds).padStart(2,'0');
+  #settings-banner-root {
+    position: fixed;
+    left: 0;
+    right: 0;
+    z-index: 999999;
+    pointer-events: none;
   }
 
-  updateCountdown();
-  setInterval(updateCountdown, 1000);
-})();
+  .settings-banner {
 
+    width: 100%;
+    position: relative;
+    pointer-events: auto;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  }
+
+  .settings-banner__scroll {
+    white-space: nowrap;
+    overflow: hidden;
+    font-size: 11px;
+    line-height: 1.2;
+  }
+
+  .settings-banner__scroll span {
+    display: inline-block;
+    padding-left: 100%;
+    animation: settings-banner-scroll 18s linear infinite;
+    padding-top: 6px;
+    padding-bottom: 6px;
+    font-weight: 600;
+  }
+
+  .settings-banner__scroll--reverse span {
+    animation-direction: reverse;
+  }
+
+  .settings-banner__content {
+    padding: 10px 36px 10px 16px;
+    text-align: center;
+  }
+
+  .settings-banner__title {
+    margin: 0 0 4px;
+    font-size: 16px;
+    line-height: 1.2;
+  }
+
+  .settings-banner__link {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .settings-banner__text {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.35;
+  }
+
+  .settings-banner__countdown {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 6px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .settings-banner__close {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  @keyframes settings-banner-scroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-100%); }
+  }
+</style>
+
+<script>
+  (function () {
+    const root = document.getElementById("settings-banner-root");
+    if (!root) return;
+
+    const dismissedKey = "settings-banner-dismissed";
+
+    function normalizePath(value) {
+      if (!value) return "/";
+
+      try {
+        if (value.startsWith("http://") || value.startsWith("https://")) {
+          return new URL(value).pathname || "/";
+        }
+      } catch (error) {
+        return value.split("?")[0] || "/";
+      }
+
+      const normalized = value.split("?")[0] || "/";
+      return normalized.startsWith("/") ? normalized : "/" + normalized;
+    }
+
+    function pageTypeFromPath(pathname) {
+      if (pathname === "/") return "home";
+      if (pathname === "/cart") return "cart";
+      if (pathname === "/search") return "search";
+      if (pathname.startsWith("/products/")) return "product";
+      if (pathname.startsWith("/collections/")) return "collection";
+      if (pathname.startsWith("/blogs/")) {
+        const segments = pathname.split("/").filter(Boolean);
+        return segments.length > 2 ? "article" : "blog";
+      }
+      if (pathname.startsWith("/pages/")) return "page";
+      return "custom";
+    }
+
+    function matchesTargetPage(targetPage, pathname) {
+      if (!targetPage || targetPage === "all") return true;
+
+      const currentPageType = pageTypeFromPath(pathname);
+      if (targetPage === currentPageType) return true;
+
+      if (targetPage.startsWith("custom:")) {
+        const customTarget = normalizePath(targetPage.slice("custom:".length).trim());
+        return pathname === customTarget;
+      }
+
+      return false;
+    }
+
+    function formatCountdown(endTime) {
+      const distance = endTime - Date.now();
+      if (distance <= 0) return "Ended";
+
+      const days = Math.floor(distance / 86400000);
+      const hours = Math.floor((distance % 86400000) / 3600000);
+      const minutes = Math.floor((distance % 3600000) / 60000);
+      const seconds = Math.floor((distance % 60000) / 1000);
+
+      return [
+        String(days).padStart(2, "0") + "d",
+        String(hours).padStart(2, "0") + "h",
+        String(minutes).padStart(2, "0") + "m",
+        String(seconds).padStart(2, "0") + "s",
+      ].join(" ");
+    }
+
+    function renderBanner(banner) {
+      root.style.top = banner.position === "bottom" ? "auto" : "0";
+      root.style.bottom = banner.position === "bottom" ? "0" : "auto";
+
+      const wrapper = document.createElement("div");
+      wrapper.className = "settings-banner";
+      wrapper.style.background = banner.backgroundColor || "#f3f0ff";
+      wrapper.style.color = banner.color || "#000000";
+
+      const safeTitle = banner.title || "";
+      const safeContent = banner.content || "";
+      const titleMarkup = banner.link
+        ? '<a class="settings-banner__link" href="' + banner.link + '">' + safeTitle + "</a>"
+        : safeTitle;
+
+      wrapper.innerHTML =
+        '<div class="settings-banner__scroll"><span>' +
+        safeTitle + " - " + safeContent + "&nbsp;&nbsp;&nbsp;&nbsp;" +
+        safeTitle + " - " + safeContent +
+        "</span></div>" +
+        '<div class="settings-banner__content">' +
+        '<h2 class="settings-banner__title">' + titleMarkup + "</h2>" +
+        '<p class="settings-banner__text">' + safeContent + "</p>" +
+        (banner.timeEnd ? '<div class="settings-banner__countdown" data-countdown></div>' : "") +
+        "</div>" +
+        '<div class="settings-banner__scroll settings-banner__scroll--reverse"><span>' +
+        safeContent + " - " + safeTitle + "&nbsp;&nbsp;&nbsp;&nbsp;" +
+        safeContent + " - " + safeTitle +
+        "</span></div>";
+
+      if (banner.dismissible) {
+        const closeButton = document.createElement("button");
+        closeButton.type = "button";
+        closeButton.className = "settings-banner__close";
+        closeButton.setAttribute("aria-label", "Close banner");
+        closeButton.textContent = "x";
+        closeButton.addEventListener("click", function () {
+          sessionStorage.setItem(dismissedKey, String(banner.id));
+          wrapper.remove();
+        });
+        wrapper.appendChild(closeButton);
+      }
+
+      const countdownNode = wrapper.querySelector("[data-countdown]");
+      if (countdownNode && banner.timeEnd) {
+        const endTime = new Date(banner.timeEnd).getTime();
+        if (!Number.isNaN(endTime)) {
+          const updateCountdown = function () {
+            countdownNode.textContent = formatCountdown(endTime);
+          };
+
+          updateCountdown();
+          window.setInterval(updateCountdown, 1000);
+        }
+      }
+
+      root.replaceChildren(wrapper);
+    }
+
+    async function loadBanner() {
+      try {
+        const response = await fetch("/apps/settings/banner-data", {
+          credentials: "same-origin",
+          headers: {
+            Accept: "application/json",
+          },
+        });
+
+        if (!response.ok) return;
+
+        const data = await response.json();
+        const pathname = normalizePath(window.location.pathname);
+        const dismissedBannerId = sessionStorage.getItem(dismissedKey);
+        
+        const matchedBanner = (data.banners || []).find(function (banner) {
+          if (!matchesTargetPage(banner.targetPage, pathname)) return false;
+          if (dismissedBannerId && String(banner.id) === dismissedBannerId) return false;
+          return true;
+        });
+
+        if (!matchedBanner) {
+          root.replaceChildren();
+          return;
+        }
+
+        renderBanner(matchedBanner);
+      } catch (error) {
+        console.error("Failed to load banner", error);
+      }
+    }
+
+    loadBanner();
+  })();
 </script>
-{% endif %}
-{% endif %}
 
 {% schema %}
 {
   "name": "Settings Banner",
-  "target": "section"
+  "target": "body"
 }
 {% endschema %}

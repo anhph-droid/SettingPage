@@ -34,6 +34,19 @@ const FONT_OPTIONS = [
   { label: "Lora", value: "'Lora', serif" },
 ];
 
+const PAGE_OPTIONS = [
+  { label: "All pages", value: "all" },
+  { label: "Home page", value: "home" },
+  { label: "Product page", value: "product" },
+  { label: "Collection page", value: "collection" },
+  { label: "Page", value: "page" },
+  { label: "Blog", value: "blog" },
+  { label: "Article", value: "article" },
+  { label: "Search", value: "search" },
+  { label: "Cart page", value: "cart" },
+  { label: "Custom URL / path", value: "custom" },
+];
+
 const DEFAULT_SETTINGS = {
   title: "Input your title here",
   content: "Input your content here",
@@ -63,6 +76,37 @@ function getRemainingTimeParts(timeEndValue, now) {
     minutes: Math.floor((distance % 3600000) / 60000),
     seconds: Math.floor((distance % 60000) / 1000),
   };
+}
+
+function normalizeCustomTargetPage(value) {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+
+  try {
+    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+      const url = new URL(trimmed);
+      return url.pathname || "/";
+    }
+  } catch {
+    return trimmed;
+  }
+
+  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+}
+
+function getTargetPageState(targetPageValue) {
+  if (!targetPageValue || targetPageValue === "all") {
+    return { selectedTargetPage: "all", customTargetPage: "" };
+  }
+
+  if (targetPageValue.startsWith("custom:")) {
+    return {
+      selectedTargetPage: "custom",
+      customTargetPage: targetPageValue.slice("custom:".length),
+    };
+  }
+
+  return { selectedTargetPage: targetPageValue, customTargetPage: "" };
 }
 
 export const loader = async ({ request }) => {
@@ -126,8 +170,18 @@ export const action = async ({ request }) => {
   const priority = Number(formData.get("priority") || 0);
   const status = formData.get("status") === "true";
   const dismissible = formData.get("dismissible") === "true";
+  const targetPage = formData.get("targetPage")?.toString() || "all";
+  const customTargetPage = normalizeCustomTargetPage(
+    formData.get("customTargetPage")?.toString() || "",
+  );
 
   const timeEndStr = formData.get("timeEnd")?.toString().trim();
+  const normalizedTargetPage =
+    targetPage === "custom"
+      ? customTargetPage
+        ? `custom:${customTargetPage}`
+        : "all"
+      : targetPage;
   
   const data = {
     shop: session.shop,
@@ -141,6 +195,7 @@ export const action = async ({ request }) => {
     priority,
     status,
     dismissible,
+    targetPage: normalizedTargetPage,
     timeEnd: timeEndStr ? new Date(timeEndStr) : null,
   };
 
@@ -181,6 +236,9 @@ export default function SettingPage() {
   const [status, setStatus] = useState( initialSettings?.status ?? DEFAULT_SETTINGS.status );
   const [dismissible, setDismissible] = useState(initialSettings?.dismissible ?? DEFAULT_SETTINGS.dismissible);
   const [selectedProductId, setSelectedProductId] = useState("");
+  const initialTargetPageState = getTargetPageState(initialSettings?.targetPage);
+  const [targetPage, setTargetPage] = useState(initialTargetPageState.selectedTargetPage);
+  const [customTargetPage, setCustomTargetPage] = useState(initialTargetPageState.customTargetPage);
 
   const [timeEnd, setTimeEnd] = useState(
     initialSettings?.timeEnd
@@ -394,6 +452,29 @@ export default function SettingPage() {
                   value={priority}
                   onChange={(value) => setPriority(Number(value))}
                 />
+
+                <Select
+                  label="Display on page"
+                  name="targetPage"
+                  value={targetPage}
+                  onChange={setTargetPage}
+                  options={PAGE_OPTIONS}
+                  helpText="Chon trang cua storefront de banner hien thi."
+                />
+
+                {targetPage === "custom" ? (
+                  <TextField
+                    label="Custom storefront path"
+                    name="customTargetPage"
+                    value={customTargetPage}
+                    onChange={(value) => setCustomTargetPage(normalizeCustomTargetPage(value))}
+                    autoComplete="off"
+                    placeholder="/pages/about-us"
+                    helpText="Vi du: /pages/about-us, /products/your-product, /blogs/news."
+                  />
+                ) : (
+                  <input type="hidden" name="customTargetPage" value="" />
+                )}
 
                 <Checkbox
                   label="Active (Status)"

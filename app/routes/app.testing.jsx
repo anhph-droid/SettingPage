@@ -60,7 +60,7 @@ export default function BarTimerSettings() {
   const [position, setPosition] = useState("top");
   const [isSticky, setIsSticky] = useState(true);
   const [showCloseButton, setShowCloseButton] = useState(true);
-
+  
   const [title, setTitle] = useState("Title");
   const [subtitle, setSubtitle] = useState("Sale ends in: ");
   const [badgeText, setBadgeText] = useState("SAVE 35%");
@@ -104,7 +104,7 @@ export default function BarTimerSettings() {
     { label: "Always show", value: "always" },
     { label: "Once per session", value: "session" },
     { label: "Hide after close", value: "dismissed" },
-  ];
+  ];     
 
   const applyPreset = (preset) => {
     setTitle(preset.title.toUpperCase());
@@ -204,7 +204,7 @@ export default function BarTimerSettings() {
               <TextField label="Seconds" type="number" value={seconds} onChange={setSeconds} autoComplete="off" />
             </div>
           </InlineStack>
-
+        
           <Text variant="bodySm" tone="subdued">
             Use this tab to mock countdown values before wiring real data.
           </Text>
