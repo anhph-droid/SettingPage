@@ -243,7 +243,7 @@ export default function SettingPage() {
 
   return (
     <Page
-      title={initialSettings ? "Edit Banner" : "Create Banner"}
+      title={initialSettings ? "Edit Banner" : "Create Bar widget"}
       subtitle="Banner chung hien thi tren storefront"
       backAction={{ content: "Back", onAction: () => navigate(-1) }}
     >

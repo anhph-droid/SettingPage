@@ -238,8 +238,8 @@ export default function ProductBannerPage() {
 
   return (
     <Page
-      title={initialSettings ? "Edit Product Banner" : "Create Product Banner"}
-      subtitle="Trang nay chi de tao banner cho product"
+      title={initialSettings ? "Edit Small Widget" : "Create Small Widget"}
+      subtitle="Banner chung hien thi tren storefront"
       backAction={{ content: "Back", onAction: () => navigate("/app") }}
     >
       <Layout>

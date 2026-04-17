@@ -17,16 +17,20 @@ export default function App() {
     <AppProvider embedded apiKey={apiKey}>
       <s-app-nav>
         <s-link href="/app">Home Page</s-link>
-        <s-link href="/app/settingPage">Setting page</s-link>
-        <s-link href="/app/productBanner">Product banner</s-link>
-        <s-link href="/app/testing">Testing </s-link>
+        <s-link href="/app/create-bar">create Bar widget</s-link>
+        <s-link href="/app/create-small">create Small widget</s-link>
+        <s-link href="/app/create-inline">create Inline widget</s-link>
+        <s-link href="/app/create-large">create Large widget</s-link>
+        <s-link href="/app/banner-bar"> Bar widget</s-link>
+        <s-link href="/app/banner-small">Small widget</s-link>
+        <s-link href="/app/banner-inline">Inline widget</s-link>
+        <s-link href="/app/banner-large">Large widget</s-link>
       </s-app-nav>
       <Outlet />
     </AppProvider>
   );
 }
 
-// Shopify needs React Router to catch some thrown responses, so that their headers are included in the response.
 export function ErrorBoundary() {
   return boundary.error(useRouteError());
 }
