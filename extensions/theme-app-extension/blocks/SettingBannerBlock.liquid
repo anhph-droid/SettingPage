@@ -1,0 +1,16 @@
+{% liquid
+  assign settings_banner_block_root_id = 'settings-banner-block-' | append: block.id
+%}
+
+{% render 'settings-banner-content',
+  root_id: settings_banner_block_root_id,
+  include_block_attributes: true
+%}
+
+{% schema %}
+{
+  "name": "Settings Banner",
+  "target": "section",
+  "settings": []
+}
+{% endschema %}

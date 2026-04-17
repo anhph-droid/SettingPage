@@ -1,0 +1,480 @@
+{% liquid
+  assign settings_banner_root_id = root_id | default: 'settings-banner-root'
+%}
+
+<div id="{{ settings_banner_root_id }}" {% if include_block_attributes %}{{ block.shopify_attributes }}{% endif %}></div>
+
+<style>
+  body.settings-banner-visible {
+    padding-top: var(--settings-banner-offset, 0px) !important;
+    transition: padding-top 0.2s ease;
+  }
+
+  #{{ settings_banner_root_id }} {
+    position: fixed;
+    inset: 0;
+    z-index: 999999;
+    pointer-events: none;
+  }
+
+  .settings-banner-stack {
+    position: fixed;
+    left: 0;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    pointer-events: none;
+  }
+
+  .settings-banner-stack--top {
+    top: 0;
+  }
+
+  .settings-banner-stack--bottom {
+    bottom: 0;
+  }
+
+  .settings-banner {
+    width: 100%;
+    position: relative;
+    pointer-events: auto;
+    background: #f7f5f3;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  }
+
+  .settings-banner--small,
+  .settings-banner--inline {
+    width: auto;
+    max-width: min(92vw, 560px);
+    margin: 12px auto 0;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 18px;
+  }
+
+  .settings-banner--small {
+    max-width: min(92vw, 360px);
+  }
+
+  .settings-banner--large {
+    background-image: linear-gradient(135deg, rgba(17, 24, 39, 0.2), rgba(0, 0, 0, 0.04));
+  }
+
+  .settings-banner__scroll {
+    display: none;
+  }
+
+  .settings-banner__layout {
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 44px 6px 16px;
+  }
+
+  .settings-banner--small .settings-banner__layout {
+    min-height: 72px;
+    padding: 14px 44px 14px 16px;
+  }
+
+  .settings-banner--inline .settings-banner__layout {
+    min-height: 86px;
+    padding: 18px 48px 18px 20px;
+  }
+
+  .settings-banner--large .settings-banner__layout {
+    min-height: 120px;
+    padding: 26px 52px 26px 24px;
+  }
+
+  .settings-banner__content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    text-align: center;
+  }
+
+  .settings-banner--small .settings-banner__content {
+    gap: 10px;
+  }
+
+  .settings-banner--large .settings-banner__content {
+    gap: 18px;
+  }
+
+  .settings-banner__title {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.1;
+    font-weight: 700;
+  }
+
+  .settings-banner--small .settings-banner__title {
+    font-size: 16px;
+  }
+
+  .settings-banner--inline .settings-banner__title {
+    font-size: 18px;
+  }
+
+  .settings-banner--large .settings-banner__title {
+    font-size: 24px;
+  }
+
+  .settings-banner__link {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .settings-banner__text {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.2;
+    color: rgba(0, 0, 0, 0.8);
+  }
+
+  .settings-banner--small .settings-banner__text {
+    font-size: 12px;
+  }
+
+  .settings-banner--inline .settings-banner__text {
+    font-size: 13px;
+  }
+
+  .settings-banner--large .settings-banner__text {
+    font-size: 15px;
+  }
+
+  .settings-banner__countdown {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+  }
+
+  .settings-banner__countdown-part {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+  }
+
+  .settings-banner__countdown-value {
+    min-width: 18px;
+    font-size: 13px;
+    line-height: 1;
+  }
+
+  .settings-banner--small .settings-banner__countdown-value {
+    font-size: 14px;
+  }
+
+  .settings-banner--inline .settings-banner__countdown-value {
+    font-size: 15px;
+  }
+
+  .settings-banner--large .settings-banner__countdown-value {
+    font-size: 20px;
+  }
+
+  .settings-banner__countdown-label {
+    font-size: 9px;
+    line-height: 1;
+    text-transform: lowercase;
+    color: rgba(0, 0, 0, 0.6);
+  }
+
+  .settings-banner__close {
+    position: absolute;
+    top: 50%;
+    right: 12px;
+    transform: translateY(-50%);
+    border: 0;
+    background: transparent;
+    color: rgba(0, 0, 0, 0.35);
+    font-size: 28px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .settings-banner__close:hover {
+    color: rgba(0, 0, 0, 0.65);
+  }
+
+  @media (max-width: 768px) {
+    .settings-banner__layout {
+      min-height: 56px;
+      padding: 8px 40px 8px 12px;
+    }
+
+    .settings-banner--small,
+    .settings-banner--inline {
+      max-width: calc(100vw - 16px);
+      margin-top: 8px;
+    }
+
+    .settings-banner--large .settings-banner__layout {
+      min-height: 96px;
+      padding: 20px 44px 20px 16px;
+    }
+
+    .settings-banner__content {
+      gap: 8px;
+      flex-direction: column;
+    }
+
+    .settings-banner__countdown {
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+  }
+</style>
+
+<script>
+  (function () {
+    const root = document.getElementById({{ settings_banner_root_id | json }});
+    if (!root) return;
+    if (window.__settingsBannerMounted === true) {
+      root.remove();
+      return;
+    }
+    if (root.dataset.settingsBannerMounted === "true") return;
+
+    window.__settingsBannerMounted = true;
+    root.dataset.settingsBannerMounted = "true";
+
+    const dismissedKey = "settings-banner-dismissed";
+    const currentProductId = {{ product.id | json }};
+
+    function normalizePath(value) {
+      if (!value) return "/";
+
+      try {
+        if (value.startsWith("http://") || value.startsWith("https://")) {
+          return new URL(value).pathname || "/";
+        }
+      } catch (error) {
+        return value.split("?")[0] || "/";
+      }
+
+      const normalized = value.split("?")[0] || "/";
+      return normalized.startsWith("/") ? normalized : "/" + normalized;
+    }
+
+    function pageTypeFromPath(pathname) {
+      if (pathname === "/") return "home";
+      if (pathname === "/cart") return "cart";
+      if (pathname === "/search") return "search";
+      if (pathname.startsWith("/products/")) return "product";
+      if (pathname.startsWith("/collections/")) return "collection";
+      if (pathname.startsWith("/blogs/")) {
+        const segments = pathname.split("/").filter(Boolean);
+        return segments.length > 2 ? "article" : "blog";
+      }
+      if (pathname.startsWith("/pages/")) return "page";
+      return "custom";
+    }
+
+    function matchesTargetPage(targetPage, pathname) {
+      if (!targetPage || targetPage === "all") return true;
+
+      const currentPageType = pageTypeFromPath(pathname);
+      if (targetPage === currentPageType) return true;
+
+      if (targetPage.startsWith("custom:")) {
+        const customTarget = normalizePath(targetPage.slice("custom:".length).trim());
+        return pathname === customTarget;
+      }
+
+      return false;
+    }
+
+    function normalizeProductId(value) {
+      if (value === null || value === undefined || value === "") return "";
+      return String(value).split("/").pop();
+    }
+
+    function matchesTargetProduct(targetProductId, pathname) {
+      if (!targetProductId) return true;
+      if (pageTypeFromPath(pathname) !== "product") return false;
+
+      return normalizeProductId(targetProductId) === normalizeProductId(currentProductId);
+    }
+
+    function setBodyOffset() {
+      const topStack = root.querySelector(".settings-banner-stack--top");
+      const height = topStack ? topStack.offsetHeight : 0;
+      document.body.style.setProperty("--settings-banner-offset", height + "px");
+      document.body.classList.toggle("settings-banner-visible", height > 0);
+    }
+
+    function clearBodyOffset() {
+      document.body.classList.remove("settings-banner-visible");
+      document.body.style.removeProperty("--settings-banner-offset");
+    }
+
+    function getCountdownParts(endTime) {
+      const distance = endTime - Date.now();
+      if (distance <= 0) return null;
+
+      return {
+        days: String(Math.floor(distance / 86400000)).padStart(2, "0"),
+        hours: String(Math.floor((distance % 86400000) / 3600000)).padStart(2, "0"),
+        mins: String(Math.floor((distance % 3600000) / 60000)).padStart(2, "0"),
+        secs: String(Math.floor((distance % 60000) / 1000)).padStart(2, "0"),
+      };
+    }
+
+    function formatCountdownMarkup(parts) {
+      if (!parts) return "";
+
+      return [
+        ["days", parts.days],
+        ["hours", parts.hours],
+        ["mins", parts.mins],
+        ["secs", parts.secs],
+      ].map(function (entry) {
+        return (
+          '<span class="settings-banner__countdown-part">' +
+          '<span class="settings-banner__countdown-value">' + entry[1] + "</span>" +
+          '<span class="settings-banner__countdown-label">' + entry[0] + "</span>" +
+          "</span>"
+        );
+      }).join("");
+    }
+
+    function createBannerNode(banner) {
+      const wrapper = document.createElement("div");
+      const bannerSize = banner.size === "medium" ? "bar" : (banner.size || "bar");
+      wrapper.className = "settings-banner settings-banner--" + bannerSize;
+      wrapper.style.background = banner.backgroundColor || "#f3f0ff";
+      wrapper.style.color = banner.color || "#000000";
+
+      const safeTitle = banner.title || "";
+      const safeContent = banner.content || "";
+      const titleMarkup = banner.link
+        ? '<a class="settings-banner__link" href="' + banner.link + '">' + safeTitle + "</a>"
+        : safeTitle;
+      const initialCountdownParts = banner.timeEnd
+        ? getCountdownParts(new Date(banner.timeEnd).getTime())
+        : null;
+
+      if (banner.timeEnd && !initialCountdownParts) return null;
+
+      wrapper.innerHTML =
+        '<div class="settings-banner__layout">' +
+        '<div class="settings-banner__content">' +
+        '<h2 class="settings-banner__title">' + titleMarkup + "</h2>" +
+        (banner.timeEnd
+          ? '<div class="settings-banner__countdown" data-countdown>' + formatCountdownMarkup(initialCountdownParts) + "</div>"
+          : '<p class="settings-banner__text">' + safeContent + "</p>") +
+        (banner.timeEnd && safeContent ? '<p class="settings-banner__text">' + safeContent + "</p>" : "") +
+        "</div>" +
+        "</div>";
+
+      if (banner.dismissible) {
+        const closeButton = document.createElement("button");
+        closeButton.type = "button";
+        closeButton.className = "settings-banner__close";
+        closeButton.setAttribute("aria-label", "Close banner");
+        closeButton.innerHTML = "&times;";
+        closeButton.addEventListener("click", function () {
+          sessionStorage.setItem(dismissedKey, String(banner.id));
+          wrapper.remove();
+          setBodyOffset();
+        });
+        wrapper.appendChild(closeButton);
+      }
+
+      const countdownNode = wrapper.querySelector("[data-countdown]");
+      if (countdownNode && banner.timeEnd) {
+        const endTime = new Date(banner.timeEnd).getTime();
+        if (!Number.isNaN(endTime)) {
+          const updateCountdown = function () {
+            const parts = getCountdownParts(endTime);
+
+            if (!parts) {
+              wrapper.remove();
+              if (!root.querySelector(".settings-banner")) {
+                clearBodyOffset();
+              } else {
+                setBodyOffset();
+              }
+              return;
+            }
+
+            countdownNode.innerHTML = formatCountdownMarkup(parts);
+          };
+
+          updateCountdown();
+          window.setInterval(updateCountdown, 1000);
+        }
+      }
+
+      return wrapper;
+    }
+
+    function renderBanners(banners) {
+      const topStack = document.createElement("div");
+      topStack.className = "settings-banner-stack settings-banner-stack--top";
+
+      const bottomStack = document.createElement("div");
+      bottomStack.className = "settings-banner-stack settings-banner-stack--bottom";
+
+      banners.forEach(function (banner) {
+        const bannerNode = createBannerNode(banner);
+        if (!bannerNode) return;
+
+        if (banner.position === "bottom") {
+          bottomStack.appendChild(bannerNode);
+        } else {
+          topStack.appendChild(bannerNode);
+        }
+      });
+
+      root.replaceChildren(topStack, bottomStack);
+      setBodyOffset();
+    }
+
+    async function loadBanner() {
+      try {
+        const response = await fetch("/apps/settings/banner-data", {
+          credentials: "same-origin",
+          headers: {
+            Accept: "application/json",
+          },
+        });
+
+        if (!response.ok) return;
+
+        const data = await response.json();
+        const pathname = normalizePath(window.location.pathname);
+        const dismissedBannerId = sessionStorage.getItem(dismissedKey);
+
+        const matchedBanners = (data.banners || []).filter(function (banner) {
+          if (!matchesTargetPage(banner.targetPage, pathname)) return false;
+          if (!matchesTargetProduct(banner.targetProductId, pathname)) return false;
+          if (dismissedBannerId && String(banner.id) === dismissedBannerId) return false;
+          return true;
+        });
+
+        if (!matchedBanners.length) {
+          root.replaceChildren();
+          clearBodyOffset();
+          return;
+        }
+
+        renderBanners(matchedBanners);
+      } catch (error) {
+        console.error("Failed to load banner", error);
+        clearBodyOffset();
+      }
+    }
+
+    window.addEventListener("resize", setBodyOffset);
+    loadBanner();
+  })();
+</script>

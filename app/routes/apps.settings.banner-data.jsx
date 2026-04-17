@@ -11,7 +11,7 @@ export const loader = async ({ request }) => {
     return new Response(JSON.stringify({ banners: [] }), {
       status: 200,
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "application/json",    
         "Cache-Control": "no-store",
       },
     });

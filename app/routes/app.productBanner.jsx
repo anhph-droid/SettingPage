@@ -20,7 +20,8 @@ import { useState, useEffect } from "react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 
 import { authenticate } from "../shopify.server";
-import prisma from "../db.server";
+  import prisma from "../db.server";
+import { getBannerPreset, getBannerPreviewStyle, getBannerSize } from "../lib/bannerPresets";
 
 const FONT_OPTIONS = [
   { label: "Playfair Display", value: "'Playfair Display', serif" },
@@ -95,6 +96,7 @@ export const loader = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
+  const preset = url.searchParams.get("preset");
 
   const [products, banner] = await Promise.all([
     loadProducts(admin),
@@ -105,7 +107,7 @@ export const loader = async ({ request }) => {
       : Promise.resolve(null),
   ]);
 
-  return { products, banner };
+  return { products, banner, preset: getBannerPreset(preset) };
 };
 
 export const action = async ({ request }) => {
@@ -163,7 +165,8 @@ export default function ProductBannerPage() {
   const navigate = useNavigate();
   const fetcher = useFetcher();
   const shopify = useAppBridge();
-  const { banner: initialSettings, products } = useLoaderData();
+  const { banner: initialSettings, products, preset } = useLoaderData();
+  const initialSize = initialSettings?.size ? getBannerSize(initialSettings.size) : preset.size;
 
   const [title, setTitle] = useState(initialSettings?.title || DEFAULT_SETTINGS.title);
   const [content, setContent] = useState(initialSettings?.content || DEFAULT_SETTINGS.content);
@@ -177,8 +180,10 @@ export default function ProductBannerPage() {
   const [contentFont, setContentFont] = useState(
     initialSettings?.contentFont || DEFAULT_SETTINGS.contentFont,
   );
-  const [size] = useState(initialSettings?.size || DEFAULT_SETTINGS.size);
-  const [position, setPosition] = useState(initialSettings?.position || DEFAULT_SETTINGS.position);
+  const [size] = useState(initialSize);
+  const [position, setPosition] = useState(
+    initialSettings?.position || preset.position || DEFAULT_SETTINGS.position,
+  );
   const [priority, setPriority] = useState(initialSettings?.priority || DEFAULT_SETTINGS.priority);
   const [status, setStatus] = useState(initialSettings?.status ?? DEFAULT_SETTINGS.status);
   const [dismissible, setDismissible] = useState(
@@ -229,6 +234,7 @@ export default function ProductBannerPage() {
 
   const remainingTime = getRemainingTimeParts(timeEnd, now);
   const showCountdown = remainingTime && !remainingTime.expired;
+  const previewStyle = getBannerPreviewStyle(size);
 
   return (
     <Page
@@ -246,9 +252,14 @@ export default function ProductBannerPage() {
 
               <Card>
                 <BlockStack gap="500">
-                  <Text variant="headingMd">
-                    {initialSettings ? "Edit Product Banner" : "Create Product Banner"}
+                <Text variant="headingMd">
+                  {initialSettings ? "Edit Product Banner" : "Create Product Banner"}
+                </Text>
+                {!initialSettings ? (
+                  <Text tone="subdued" variant="bodySm">
+                    Layout dang chon: {preset.title}
                   </Text>
+                ) : null}
 
                   <FormLayout>
                     <Select
@@ -410,11 +421,9 @@ export default function ProductBannerPage() {
                   style={{
                     backgroundColor,
                     color,
-                    padding: size === "large" ? "28px" : size === "medium" ? "20px" : "14px",
-                    borderRadius: "12px",
+                    ...previewStyle.container,
                     textAlign: "center",
                     border: "1px solid #ddd",
-                    minHeight: "180px",
                     display: "flex",
                     flexDirection: "column",
                     justifyContent: "center",
@@ -424,8 +433,7 @@ export default function ProductBannerPage() {
                     style={{
                       margin: 0,
                       fontFamily: titleFont,
-                      fontSize:
-                        size === "large" ? "2rem" : size === "medium" ? "1.6rem" : "1.3rem",
+                      fontSize: previewStyle.titleSize,
                       fontWeight: 700,
                       lineHeight: 1.2,
                     }}
@@ -438,12 +446,7 @@ export default function ProductBannerPage() {
                       marginBottom: 0,
                       opacity: 0.9,
                       fontFamily: contentFont,
-                      fontSize:
-                        size === "large"
-                          ? "1.05rem"
-                          : size === "medium"
-                            ? "0.95rem"
-                            : "0.9rem",
+                      fontSize: previewStyle.contentSize,
                       lineHeight: 1.5,
                     }}
                   >
@@ -476,7 +479,7 @@ export default function ProductBannerPage() {
                           <div
                             style={{
                               fontFamily: titleFont,
-                              fontSize: size === "large" ? "1.35rem" : "1.1rem",
+                              fontSize: previewStyle.countdownValueSize,
                               fontWeight: 700,
                             }}
                           >

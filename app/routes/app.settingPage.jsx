@@ -2,6 +2,7 @@ import { useNavigate, useFetcher, useLoaderData } from "react-router";
 
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
+import { getBannerPreset, getBannerPreviewStyle, getBannerSize } from "../lib/bannerPresets";
 
 import {
   Page,
@@ -108,6 +109,7 @@ export const loader = async ({ request }) => {
   await authenticate.admin(request);
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
+  const preset = url.searchParams.get("preset");
   let banner = null;
 
   if (id) {
@@ -116,7 +118,7 @@ export const loader = async ({ request }) => {
     });
   }
 
-  return { banner };
+  return { banner, preset: getBannerPreset(preset) };
 };
 
 export const action = async ({ request }) => {
@@ -176,9 +178,10 @@ export const action = async ({ request }) => {
 
 export default function SettingPage() {
   const navigate = useNavigate();
-  const { banner: initialSettings } = useLoaderData();
+  const { banner: initialSettings, preset } = useLoaderData();
   const fetcher = useFetcher();
   const shopify = useAppBridge();
+  const initialSize = initialSettings?.size ? getBannerSize(initialSettings.size) : preset.size;
 
   const [title, setTitle] = useState(initialSettings?.title || DEFAULT_SETTINGS.title);
   const [content, setContent] = useState(initialSettings?.content || DEFAULT_SETTINGS.content);
@@ -192,8 +195,10 @@ export default function SettingPage() {
   const [contentFont, setContentFont] = useState(
     initialSettings?.contentFont || DEFAULT_SETTINGS.contentFont,
   );
-  const [size] = useState(initialSettings?.size || DEFAULT_SETTINGS.size);
-  const [position, setPosition] = useState(initialSettings?.position || DEFAULT_SETTINGS.position);
+  const [size] = useState(initialSize);
+  const [position, setPosition] = useState(
+    initialSettings?.position || preset.position || DEFAULT_SETTINGS.position,
+  );
   const [priority, setPriority] = useState(initialSettings?.priority || DEFAULT_SETTINGS.priority);
   const [status, setStatus] = useState(initialSettings?.status ?? DEFAULT_SETTINGS.status);
   const [dismissible, setDismissible] = useState(
@@ -234,6 +239,7 @@ export default function SettingPage() {
 
   const remainingTime = getRemainingTimeParts(timeEnd, now);
   const showCountdown = remainingTime && !remainingTime.expired;
+  const previewStyle = getBannerPreviewStyle(size);
 
   return (
     <Page
@@ -249,6 +255,11 @@ export default function SettingPage() {
           <Card>
             <BlockStack gap="500">
               <Text variant="headingMd">Banner Settings</Text>
+              {!initialSettings ? (
+                <Text tone="subdued" variant="bodySm">
+                  Layout dang chon: {preset.title}
+                </Text>
+              ) : null}
 
               <FormLayout>
                 <TextField
@@ -422,11 +433,9 @@ export default function SettingPage() {
               style={{
                 backgroundColor,
                 color,
-                padding: size === "large" ? "28px" : size === "medium" ? "20px" : "14px",
-                borderRadius: "12px",
+                ...previewStyle.container,
                 textAlign: "center",
                 border: "1px solid #ddd",
-                minHeight: "180px",
                 display: "flex",
                 flexDirection: "column",
                 justifyContent: "center",
@@ -436,7 +445,7 @@ export default function SettingPage() {
                 style={{
                   margin: 0,
                   fontFamily: titleFont,
-                  fontSize: size === "large" ? "2rem" : size === "medium" ? "1.6rem" : "1.3rem",
+                  fontSize: previewStyle.titleSize,
                   fontWeight: 700,
                   lineHeight: 1.2,
                 }}
@@ -449,8 +458,7 @@ export default function SettingPage() {
                   marginBottom: 0,
                   opacity: 0.9,
                   fontFamily: contentFont,
-                  fontSize:
-                    size === "large" ? "1.05rem" : size === "medium" ? "0.95rem" : "0.9rem",
+                  fontSize: previewStyle.contentSize,
                   lineHeight: 1.5,
                 }}
               >
@@ -483,7 +491,7 @@ export default function SettingPage() {
                       <div
                         style={{
                           fontFamily: titleFont,
-                          fontSize: size === "large" ? "1.35rem" : "1.1rem",
+                          fontSize: previewStyle.countdownValueSize,
                           fontWeight: 700,
                         }}
                       >
