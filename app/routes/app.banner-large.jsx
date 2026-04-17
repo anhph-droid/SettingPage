@@ -255,12 +255,6 @@ export default function SettingPage() {
           <Card>
             <BlockStack gap="500">
               <Text variant="headingMd">Banner Settings</Text>
-              {!initialSettings ? (
-                <Text tone="subdued" variant="bodySm">
-                  Layout dang chon: {preset.title}
-                </Text>
-              ) : null}
-
               <FormLayout>
                 <TextField
                   label="Title"

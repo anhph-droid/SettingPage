@@ -22,9 +22,11 @@ export default function App() {
         <s-link href="/app/create-inline">create Inline widget</s-link>
         <s-link href="/app/create-large">create Large widget</s-link>
         <s-link href="/app/banner-bar"> Bar widget</s-link>
-        <s-link href="/app/banner-small">Small widget</s-link>
+        <s-link href="/app/banner-small"> Small widget</s-link>
         <s-link href="/app/banner-inline">Inline widget</s-link>
         <s-link href="/app/banner-large">Large widget</s-link>
+
+        
       </s-app-nav>
       <Outlet />
     </AppProvider>

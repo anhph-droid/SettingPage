@@ -1,15 +1,18 @@
 import { useNavigate, useFetcher, useLoaderData } from "react-router";
 
+import { authenticate } from "../shopify.server";
+import prisma from "../db.server";
+import { getBannerPreset, getBannerPreviewStyle, getBannerSize } from "../lib/bannerPresets";
+
 import {
   Page,
-  Layout,
   Card,
   BlockStack,
-  InlineStack,
+  TextField,
   Button,
   ButtonGroup,
   Text,
-  TextField,
+  InlineStack,
   FormLayout,
   Checkbox,
   Select,
@@ -19,10 +22,6 @@ import {
 import { useState, useEffect } from "react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 
-import { authenticate } from "../shopify.server";
-  import prisma from "../db.server";
-import { getBannerPreset, getBannerPreviewStyle, getBannerSize } from "../lib/bannerPresets";
-
 const FONT_OPTIONS = [
   { label: "Playfair Display", value: "'Playfair Display', serif" },
   { label: "Bebas Neue", value: "'Bebas Neue', sans-serif" },
@@ -30,6 +29,18 @@ const FONT_OPTIONS = [
   { label: "Poppins", value: "'Poppins', sans-serif" },
   { label: "Inter", value: "Inter, sans-serif" },
   { label: "Lora", value: "'Lora', serif" },
+];
+
+const PAGE_OPTIONS = [
+  { label: "All pages", value: "all" },
+  { label: "Home page", value: "home" },
+  { label: "Collection page", value: "collection" },
+  { label: "Page", value: "page" },
+  { label: "Blog", value: "blog" },
+  { label: "Article", value: "article" },
+  { label: "Search", value: "search" },
+  { label: "Cart page", value: "cart" },
+  { label: "Custom URL / path", value: "custom" },
 ];
 
 const DEFAULT_SETTINGS = {
@@ -63,51 +74,51 @@ function getRemainingTimeParts(timeEndValue, now) {
   };
 }
 
-async function loadProducts(admin) {
-  const response = await admin.graphql(`
-    query ProductBannerProducts {
-      products(first: 50, sortKey: UPDATED_AT, reverse: true) {
-        edges {
-          node {
-            id
-            title
-            handle
-            status
-          }
-        }
-      }
+function normalizeCustomTargetPage(value) {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+
+  try {
+    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+      const url = new URL(trimmed);
+      return url.pathname || "/";
     }
-  `);
+  } catch {
+    return trimmed;
+  }
 
-  const responseJson = await response.json();
+  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+}
 
-  return (
-    responseJson.data?.products?.edges?.map(({ node }) => ({
-      id: node.id,
-      title: node.title,
-      handle: node.handle,
-      status: node.status,
-      path: `/products/${node.handle}`,
-    })) || []
-  );
+function getTargetPageState(targetPageValue) {
+  if (!targetPageValue || targetPageValue === "all") {
+    return { selectedTargetPage: "all", customTargetPage: "" };
+  }
+
+  if (targetPageValue.startsWith("custom:")) {
+    return {
+      selectedTargetPage: "custom",
+      customTargetPage: targetPageValue.slice("custom:".length),
+    };
+  }
+
+  return { selectedTargetPage: targetPageValue, customTargetPage: "" };
 }
 
 export const loader = async ({ request }) => {
-  const { admin } = await authenticate.admin(request);
+  await authenticate.admin(request);
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
   const preset = url.searchParams.get("preset");
+  let banner = null;
 
-  const [products, banner] = await Promise.all([
-    loadProducts(admin),
-    id
-      ? prisma.app_banner.findUnique({
-          where: { id: Number(id) },
-        })
-      : Promise.resolve(null),
-  ]);
+  if (id) {
+    banner = await prisma.app_banner.findUnique({
+      where: { id: Number(id) },
+    });
+  }
 
-  return { products, banner, preset: getBannerPreset(preset) };
+  return { banner, preset: getBannerPreset(preset) };
 };
 
 export const action = async ({ request }) => {
@@ -124,19 +135,23 @@ export const action = async ({ request }) => {
   const priority = Number(formData.get("priority") || 0);
   const status = formData.get("status") === "true";
   const dismissible = formData.get("dismissible") === "true";
-  const targetProductId = formData.get("targetProductId")?.toString() || "";
-  const productPath = formData.get("productPath")?.toString() || "";
+  const targetPage = formData.get("targetPage")?.toString() || "all";
+  const customTargetPage = normalizeCustomTargetPage(
+    formData.get("customTargetPage")?.toString() || "",
+  );
   const timeEndStr = formData.get("timeEnd")?.toString().trim();
-
-  if (!targetProductId) {
-    return { ok: false, errors: { general: "Please select a product" } };
-  }
+  const normalizedTargetPage =
+    targetPage === "custom"
+      ? customTargetPage
+        ? `custom:${customTargetPage}`
+        : "all"
+      : targetPage;
 
   const data = {
     shop: session.shop,
     title,
     content,
-    link: productPath || null,
+    link: null,
     color,
     backgroundColor,
     size,
@@ -144,8 +159,8 @@ export const action = async ({ request }) => {
     priority,
     status,
     dismissible,
-    targetProductId,
-    targetPage: "product",
+    targetProductId: null,
+    targetPage: normalizedTargetPage,
     timeEnd: timeEndStr ? new Date(timeEndStr) : null,
   };
 
@@ -161,11 +176,11 @@ export const action = async ({ request }) => {
   return { ok: true };
 };
 
-export default function ProductBannerPage() {
+export default function SettingPage() {
   const navigate = useNavigate();
+  const { banner: initialSettings, preset } = useLoaderData();
   const fetcher = useFetcher();
   const shopify = useAppBridge();
-  const { banner: initialSettings, products, preset } = useLoaderData();
   const initialSize = initialSettings?.size ? getBannerSize(initialSettings.size) : preset.size;
 
   const [title, setTitle] = useState(initialSettings?.title || DEFAULT_SETTINGS.title);
@@ -189,9 +204,9 @@ export default function ProductBannerPage() {
   const [dismissible, setDismissible] = useState(
     initialSettings?.dismissible ?? DEFAULT_SETTINGS.dismissible,
   );
-  const [selectedProductId, setSelectedProductId] = useState(
-    initialSettings?.targetProductId || "",
-  );
+  const initialTargetPageState = getTargetPageState(initialSettings?.targetPage);
+  const [targetPage, setTargetPage] = useState(initialTargetPageState.selectedTargetPage);
+  const [customTargetPage, setCustomTargetPage] = useState(initialTargetPageState.customTargetPage);
   const [timeEnd, setTimeEnd] = useState(
     initialSettings?.timeEnd
       ? new Date(initialSettings.timeEnd).toISOString().slice(0, 16)
@@ -200,26 +215,16 @@ export default function ProductBannerPage() {
   const [now, setNow] = useState(Date.now());
 
   const isSaving = fetcher.state === "submitting";
-  const productOptions = [
-    { label: "Select a product", value: "" },
-    ...products.map((product) => ({
-      label: `${product.title} (${product.status})`,
-      value: product.id,
-    })),
-  ];
-  const selectedProduct =
-    products.find((product) => product.id === selectedProductId) || null;
 
   useEffect(() => {
     if (fetcher.data?.ok) {
-      shopify.toast.show("Product banner saved successfully!", { duration: 3000 });
-      navigate("/app");
+      shopify.toast.show("Settings saved successfully!", { duration: 3000 });
+      if (!initialSettings?.id) navigate(-1);
     }
-
     if (fetcher.data?.errors) {
       shopify.toast.show(fetcher.data.errors.general || "Save failed", { isError: true });
     }
-  }, [fetcher.data, navigate, shopify]);
+  }, [fetcher.data, shopify, navigate, initialSettings]);
 
   useEffect(() => {
     if (!timeEnd) return undefined;
@@ -238,274 +243,273 @@ export default function ProductBannerPage() {
 
   return (
     <Page
-      title={initialSettings ? "Edit Small Widget" : "Create Small Widget"}
+      title={initialSettings ? "Edit Banner" : "Create Small widget"}
       subtitle="Banner chung hien thi tren storefront"
-      backAction={{ content: "Back", onAction: () => navigate("/app") }}
+      backAction={{ content: "Back", onAction: () => navigate(-1) }}
     >
-      <Layout>
-        <Layout.Section>
-          <div style={{ display: "grid", gap: "24px", gridTemplateColumns: "2fr 1fr" }}>
-            <fetcher.Form method="post">
-              <input type="hidden" name="id" value={initialSettings?.id || ""} />
-              <input type="hidden" name="size" value={size} />
-              <input type="hidden" name="productPath" value={selectedProduct?.path || ""} />
+      <div style={{ display: "grid", gap: "24px", gridTemplateColumns: "2fr 1fr" }}>
+        <fetcher.Form method="post">
+          <input type="hidden" name="id" value={initialSettings?.id || ""} />
+          <input type="hidden" name="size" value={size} />
 
-              <Card>
-                <BlockStack gap="500">
-                <Text variant="headingMd">
-                  {initialSettings ? "Edit Product Banner" : "Create Product Banner"}
-                </Text>
-                {!initialSettings ? (
-                  <Text tone="subdued" variant="bodySm">
-                    Layout dang chon: {preset.title}
-                  </Text>
-                ) : null}
+          <Card>
+            <BlockStack gap="500">
+              <Text variant="headingMd">Banner Settings</Text>
+              <FormLayout>
+                <TextField
+                  label="Title"
+                  name="title"
+                  value={title}
+                  onChange={setTitle}
+                  autoComplete="off"
+                />
 
-                  <FormLayout>
-                    <Select
-                      label="Product"
-                      name="targetProductId"
-                      value={selectedProductId}
-                      onChange={setSelectedProductId}
-                      options={productOptions}
-                      helpText="Banner nay chi hien thi tren product duoc chon"
-                    />
+                <TextField
+                  label="Content"
+                  name="content"
+                  value={content}
+                  onChange={setContent}
+                  multiline={4}
+                  autoComplete="off"
+                />
 
-                    <TextField
-                      label="Title"
-                      name="title"
-                      value={title}
-                      onChange={setTitle}
-                      autoComplete="off"
-                    />
-
-                    <TextField
-                      label="Content"
-                      name="content"
-                      value={content}
-                      onChange={setContent}
-                      multiline={4}
-                      autoComplete="off"
-                    />
-
-                    <FormLayout.Group>
-                      <div>
-                        <Text variant="bodyMd" as="p" fontWeight="medium">
-                          Background Color
-                        </Text>
-                        <input
-                          type="color"
-                          name="backgroundColor"
-                          value={backgroundColor}
-                          onChange={(event) => setBackgroundColor(event.target.value)}
-                          style={{
-                            width: "80px",
-                            height: "50px",
-                            border: "none",
-                            borderRadius: "8px",
-                            cursor: "pointer",
-                          }}
-                        />
-                      </div>
-
-                      <div>
-                        <Text variant="bodyMd" as="p" fontWeight="medium">
-                          Text Color
-                        </Text>
-                        <input
-                          type="color"
-                          name="color"
-                          value={color}
-                          onChange={(event) => setColor(event.target.value)}
-                          style={{
-                            width: "80px",
-                            height: "50px",
-                            border: "none",
-                            borderRadius: "8px",
-                            cursor: "pointer",
-                          }}
-                        />
-                      </div>
-                    </FormLayout.Group>
-
-                    <FormLayout.Group>
-                      <Select
-                        label="Title Font"
-                        name="titleFont"
-                        value={titleFont}
-                        onChange={setTitleFont}
-                        options={FONT_OPTIONS}
-                      />
-
-                      <Select
-                        label="Content Font"
-                        name="contentFont"
-                        value={contentFont}
-                        onChange={setContentFont}
-                        options={FONT_OPTIONS}
-                      />
-                    </FormLayout.Group>
-
-                    <FormLayout.Group>
-                      <Select
-                        label="Position"
-                        name="position"
-                        value={position}
-                        onChange={setPosition}
-                        options={[
-                          { label: "Top", value: "top" },
-                          { label: "Bottom", value: "bottom" },
-                        ]}
-                      />
-                    </FormLayout.Group>
-
-                    <TextField
-                      label="Priority"
-                      type="number"
-                      name="priority"
-                      value={priority}
-                      onChange={(value) => setPriority(Number(value))}
-                    />
-
-                    <Checkbox
-                      label="Active (Status)"
-                      checked={status}
-                      onChange={(value) => setStatus(value)}
-                    />
-
-                    <input type="hidden" name="status" value={status ? "true" : "false"} />
-
-                    <Checkbox
-                      label="Dismissible (user can close)"
-                      checked={dismissible}
-                      onChange={(value) => setDismissible(value)}
-                    />
-
+                <FormLayout.Group>
+                  <div>
+                    <Text variant="bodyMd" as="p" fontWeight="medium">
+                      Background Color
+                    </Text>
                     <input
-                      type="hidden"
-                      name="dismissible"
-                      value={dismissible ? "true" : "false"}
+                      type="color"
+                      name="backgroundColor"
+                      value={backgroundColor}
+                      onChange={(e) => setBackgroundColor(e.target.value)}
+                      style={{
+                        width: "80px",
+                        height: "50px",
+                        border: "none",
+                        borderRadius: "8px",
+                        cursor: "pointer",
+                      }}
                     />
+                  </div>
 
-                    <TextField
-                      label="End Time"
-                      type="datetime-local"
-                      name="timeEnd"
-                      value={timeEnd}
-                      onChange={setTimeEnd}
+                  <div>
+                    <Text variant="bodyMd" as="p" fontWeight="medium">
+                      Text Color
+                    </Text>
+                    <input
+                      type="color"
+                      name="color"
+                      value={color}
+                      onChange={(e) => setColor(e.target.value)}
+                      style={{
+                        width: "80px",
+                        height: "50px",
+                        border: "none",
+                        borderRadius: "8px",
+                        cursor: "pointer",
+                      }}
                     />
-                  </FormLayout>
+                  </div>
+                </FormLayout.Group>
 
-                  <Divider />
+                <FormLayout.Group>
+                  <Select
+                    label="Title Font"
+                    name="titleFont"
+                    value={titleFont}
+                    onChange={setTitleFont}
+                    options={FONT_OPTIONS}
+                  />
 
-                  <InlineStack align="end">
-                    <ButtonGroup>
-                      <Button onClick={() => navigate("/app")}>Cancel</Button>
-                      <Button variant="primary" submit loading={isSaving}>
-                        {initialSettings ? "Save Changes" : "Create Product Banner"}
-                      </Button>
-                    </ButtonGroup>
-                  </InlineStack>
-                </BlockStack>
-              </Card>
-            </fetcher.Form>
+                  <Select
+                    label="Content Font"
+                    name="contentFont"
+                    value={contentFont}
+                    onChange={setContentFont}
+                    options={FONT_OPTIONS}
+                  />
+                </FormLayout.Group>
 
-            <Card>
-              <BlockStack gap="400">
-                <Text variant="headingMd">Live Preview</Text>
-                <Text tone="subdued" variant="bodySm">
-                  {selectedProduct ? `Ap dung cho ${selectedProduct.title}` : "Chua chon product"}
-                </Text>
+                <FormLayout.Group>
+                  <Select
+                    label="Position"
+                    name="position"
+                    value={position}
+                    onChange={setPosition}
+                    options={[
+                      { label: "Top", value: "top" },
+                      { label: "Bottom", value: "bottom" },
+                    ]}
+                  />
+                </FormLayout.Group>
 
+                <TextField
+                  label="Priority"
+                  type="number"
+                  name="priority"
+                  value={priority}
+                  onChange={(value) => setPriority(Number(value))}
+                />
+
+                <Select
+                  label="Display on page"
+                  name="targetPage"
+                  value={targetPage}
+                  onChange={setTargetPage}
+                  options={PAGE_OPTIONS}
+                  helpText="Chon trang cua storefront de banner hien thi."
+                />
+
+                {targetPage === "custom" ? (
+                  <TextField
+                    label="Custom storefront path"
+                    name="customTargetPage"
+                    value={customTargetPage}
+                    onChange={(value) => setCustomTargetPage(normalizeCustomTargetPage(value))}
+                    autoComplete="off"
+                    placeholder="/pages/about-us"
+                    helpText="Vi du: /pages/about-us, /collections/all, /blogs/news."
+                  />
+                ) : (
+                  <input type="hidden" name="customTargetPage" value="" />
+                )}
+
+                <Checkbox
+                  label="Active (Status)"
+                  checked={status}
+                  onChange={(value) => setStatus(value)}
+                />
+
+                <input type="hidden" name="status" value={status ? "true" : "false"} />
+
+                <Checkbox
+                  label="Dismissible (user can close)"
+                  checked={dismissible}
+                  onChange={(value) => setDismissible(value)}
+                />
+
+                <input
+                  type="hidden"
+                  name="dismissible"
+                  value={dismissible ? "true" : "false"}
+                />
+
+                <FormLayout.Group>
+                  <TextField
+                    label="End Time"
+                    type="datetime-local"
+                    name="timeEnd"
+                    value={timeEnd}
+                    onChange={setTimeEnd}
+                  />
+                </FormLayout.Group>
+              </FormLayout>
+              <Divider />
+
+              <InlineStack align="end">
+                <ButtonGroup>
+                  <Button onClick={() => navigate(-1)}>Cancel</Button>
+                  <Button variant="primary" submit loading={isSaving}>
+                    {initialSettings ? "Save Changes" : "Create Banner"}
+                  </Button>
+                </ButtonGroup>
+              </InlineStack>
+            </BlockStack>
+          </Card>
+        </fetcher.Form>
+
+        <Card>
+          <BlockStack gap="400">
+            <Text variant="headingMd">Live Preview</Text>
+
+            <div
+              style={{
+                backgroundColor,
+                color,
+                ...previewStyle.container,
+                textAlign: "center",
+                border: "1px solid #ddd",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+              }}
+            >
+              <h3
+                style={{
+                  margin: 0,
+                  fontFamily: titleFont,
+                  fontSize: previewStyle.titleSize,
+                  fontWeight: 700,
+                  lineHeight: 1.2,
+                }}
+              >
+                {title}
+              </h3>
+              <p
+                style={{
+                  marginTop: "8px",
+                  marginBottom: 0,
+                  opacity: 0.9,
+                  fontFamily: contentFont,
+                  fontSize: previewStyle.contentSize,
+                  lineHeight: 1.5,
+                }}
+              >
+                {content}
+              </p>
+
+              {showCountdown ? (
                 <div
                   style={{
-                    backgroundColor,
-                    color,
-                    ...previewStyle.container,
-                    textAlign: "center",
-                    border: "1px solid #ddd",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
+                    marginTop: "18px",
+                    display: "grid",
+                    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                    gap: "10px",
                   }}
                 >
-                  <h3
-                    style={{
-                      margin: 0,
-                      fontFamily: titleFont,
-                      fontSize: previewStyle.titleSize,
-                      fontWeight: 700,
-                      lineHeight: 1.2,
-                    }}
-                  >
-                    {title}
-                  </h3>
-                  <p
-                    style={{
-                      marginTop: "8px",
-                      marginBottom: 0,
-                      opacity: 0.9,
-                      fontFamily: contentFont,
-                      fontSize: previewStyle.contentSize,
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    {content}
-                  </p>
-
-                  {showCountdown ? (
+                  {[
+                    { label: "Days", value: remainingTime.days },
+                    { label: "Hours", value: remainingTime.hours },
+                    { label: "Minutes", value: remainingTime.minutes },
+                    { label: "Seconds", value: remainingTime.seconds },
+                  ].map((item) => (
                     <div
+                      key={item.label}
                       style={{
-                        marginTop: "18px",
-                        display: "grid",
-                        gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-                        gap: "10px",
+                        padding: "12px 8px",
+                        borderRadius: "10px",
+                        backgroundColor: "rgba(255,255,255,0.18)",
                       }}
                     >
-                      {[
-                        { label: "Days", value: remainingTime.days },
-                        { label: "Hours", value: remainingTime.hours },
-                        { label: "Minutes", value: remainingTime.minutes },
-                        { label: "Seconds", value: remainingTime.seconds },
-                      ].map((item) => (
-                        <div
-                          key={item.label}
-                          style={{
-                            padding: "12px 8px",
-                            borderRadius: "10px",
-                            backgroundColor: "rgba(255,255,255,0.18)",
-                          }}
-                        >
-                          <div
-                            style={{
-                              fontFamily: titleFont,
-                              fontSize: previewStyle.countdownValueSize,
-                              fontWeight: 700,
-                            }}
-                          >
-                            {String(item.value).padStart(2, "0")}
-                          </div>
-                          <div
-                            style={{
-                              marginTop: "4px",
-                              fontFamily: contentFont,
-                              fontSize: "0.75rem",
-                              textTransform: "uppercase",
-                              letterSpacing: "0.08em",
-                            }}
-                          >
-                            {item.label}
-                          </div>
-                        </div>
-                      ))}
+                      <div
+                        style={{
+                          fontFamily: titleFont,
+                          fontSize: previewStyle.countdownValueSize,
+                          fontWeight: 700,
+                        }}
+                      >
+                        {String(item.value).padStart(2, "0")}
+                      </div>
+                      <div
+                        style={{
+                          marginTop: "4px",
+                          fontFamily: contentFont,
+                          fontSize: "0.75rem",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.08em",
+                        }}
+                      >
+                        {item.label}
+                      </div>
                     </div>
-                  ) : null}
+                  ))}
                 </div>
-              </BlockStack>
-            </Card>
-          </div>
-        </Layout.Section>
-      </Layout>
+              ) : null}
+            </div>
+          </BlockStack>
+        </Card>
+      </div>
     </Page>
   );
 }
