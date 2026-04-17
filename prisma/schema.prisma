@@ -57,6 +57,7 @@ model app_banner {
   color           String
   backgroundColor String
   targetPage      String @default("all")   
+  targetProductId String?
   size            String 
   link            String?   // optional
   position        String    @default("top")

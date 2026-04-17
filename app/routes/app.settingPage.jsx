@@ -1,8 +1,4 @@
-import {
-  useNavigate,
-  useFetcher,
-  useLoaderData,
-} from "react-router";
+import { useNavigate, useFetcher, useLoaderData } from "react-router";
 
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
@@ -37,7 +33,6 @@ const FONT_OPTIONS = [
 const PAGE_OPTIONS = [
   { label: "All pages", value: "all" },
   { label: "Home page", value: "home" },
-  { label: "Product page", value: "product" },
   { label: "Collection page", value: "collection" },
   { label: "Page", value: "page" },
   { label: "Blog", value: "blog" },
@@ -110,7 +105,7 @@ function getTargetPageState(targetPageValue) {
 }
 
 export const loader = async ({ request }) => {
-  const { admin } = await authenticate.admin(request);
+  await authenticate.admin(request);
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
   let banner = null;
@@ -119,40 +114,9 @@ export const loader = async ({ request }) => {
     banner = await prisma.app_banner.findUnique({
       where: { id: Number(id) },
     });
-  }  
+  }
 
-  const response = await admin.graphql(`
-    query ProductPickerProducts {
-      products(first: 30, sortKey: UPDATED_AT, reverse: true) {
-        edges {
-          node {
-            id
-            title
-            handle
-            status
-            featuredImage {
-              url
-              altText
-            }
-          }
-        }
-      }
-    }
-  `);
-
-  const responseJson = await response.json();
-  const products =
-    responseJson.data?.products?.edges?.map(({ node }) => ({
-      id: node.id,
-      title: node.title,
-      handle: node.handle,
-      status: node.status,
-      imageUrl: node.featuredImage?.url || "",
-      imageAlt: node.featuredImage?.altText || node.title,
-      path: `/products/${node.handle}`,
-    })) || [];
-
-  return { banner, products };
+  return { banner };
 };
 
 export const action = async ({ request }) => {
@@ -162,7 +126,6 @@ export const action = async ({ request }) => {
   const id = formData.get("id");
   const title = formData.get("title")?.toString() || "";
   const content = formData.get("content")?.toString() || "";
-  const link = formData.get("link")?.toString() || "";
   const color = formData.get("color")?.toString() || "#000000";
   const backgroundColor = formData.get("backgroundColor")?.toString() || "#f3f0ff";
   const size = formData.get("size")?.toString() || "medium";
@@ -174,7 +137,6 @@ export const action = async ({ request }) => {
   const customTargetPage = normalizeCustomTargetPage(
     formData.get("customTargetPage")?.toString() || "",
   );
-
   const timeEndStr = formData.get("timeEnd")?.toString().trim();
   const normalizedTargetPage =
     targetPage === "custom"
@@ -182,12 +144,12 @@ export const action = async ({ request }) => {
         ? `custom:${customTargetPage}`
         : "all"
       : targetPage;
-  
+
   const data = {
     shop: session.shop,
     title,
     content,
-    link: link || null,
+    link: null,
     color,
     backgroundColor,
     size,
@@ -195,6 +157,7 @@ export const action = async ({ request }) => {
     priority,
     status,
     dismissible,
+    targetProductId: null,
     targetPage: normalizedTargetPage,
     timeEnd: timeEndStr ? new Date(timeEndStr) : null,
   };
@@ -213,59 +176,51 @@ export const action = async ({ request }) => {
 
 export default function SettingPage() {
   const navigate = useNavigate();
-  const { banner: initialSettings, products } = useLoaderData();
+  const { banner: initialSettings } = useLoaderData();
   const fetcher = useFetcher();
   const shopify = useAppBridge();
 
   const [title, setTitle] = useState(initialSettings?.title || DEFAULT_SETTINGS.title);
   const [content, setContent] = useState(initialSettings?.content || DEFAULT_SETTINGS.content);
-  const [link, setLink] = useState(initialSettings?.link || "");
   const [color, setColor] = useState(initialSettings?.color || DEFAULT_SETTINGS.color);
   const [backgroundColor, setBackgroundColor] = useState(
-    initialSettings?.backgroundColor || DEFAULT_SETTINGS.backgroundColor
+    initialSettings?.backgroundColor || DEFAULT_SETTINGS.backgroundColor,
   );
   const [titleFont, setTitleFont] = useState(
-    initialSettings?.titleFont || DEFAULT_SETTINGS.titleFont
+    initialSettings?.titleFont || DEFAULT_SETTINGS.titleFont,
   );
   const [contentFont, setContentFont] = useState(
-    initialSettings?.contentFont || DEFAULT_SETTINGS.contentFont
+    initialSettings?.contentFont || DEFAULT_SETTINGS.contentFont,
   );
-  const [size, setSize] = useState(initialSettings?.size || DEFAULT_SETTINGS.size);
+  const [size] = useState(initialSettings?.size || DEFAULT_SETTINGS.size);
   const [position, setPosition] = useState(initialSettings?.position || DEFAULT_SETTINGS.position);
   const [priority, setPriority] = useState(initialSettings?.priority || DEFAULT_SETTINGS.priority);
-  const [status, setStatus] = useState( initialSettings?.status ?? DEFAULT_SETTINGS.status );
-  const [dismissible, setDismissible] = useState(initialSettings?.dismissible ?? DEFAULT_SETTINGS.dismissible);
-  const [selectedProductId, setSelectedProductId] = useState("");
+  const [status, setStatus] = useState(initialSettings?.status ?? DEFAULT_SETTINGS.status);
+  const [dismissible, setDismissible] = useState(
+    initialSettings?.dismissible ?? DEFAULT_SETTINGS.dismissible,
+  );
   const initialTargetPageState = getTargetPageState(initialSettings?.targetPage);
   const [targetPage, setTargetPage] = useState(initialTargetPageState.selectedTargetPage);
   const [customTargetPage, setCustomTargetPage] = useState(initialTargetPageState.customTargetPage);
-
   const [timeEnd, setTimeEnd] = useState(
     initialSettings?.timeEnd
       ? new Date(initialSettings.timeEnd).toISOString().slice(0, 16)
-      : ""
+      : "",
   );
   const [now, setNow] = useState(Date.now());
 
   const isSaving = fetcher.state === "submitting";
 
-  // Toast notification
   useEffect(() => {
     if (fetcher.data?.ok) {
       shopify.toast.show("Settings saved successfully!", { duration: 3000 });
-      if (!initialSettings?.id) navigate(-1); 
+      if (!initialSettings?.id) navigate(-1);
     }
     if (fetcher.data?.errors) {
       shopify.toast.show(fetcher.data.errors.general || "Save failed", { isError: true });
     }
   }, [fetcher.data, shopify, navigate, initialSettings]);
-// select product
-  useEffect(() => {
-    const matchedProduct =
-      products.find((product) => product.path === link || link.endsWith(product.path)) || null;
-    setSelectedProductId(matchedProduct?.id || "");
-  }, [link, products]);
- // time 
+
   useEffect(() => {
     if (!timeEnd) return undefined;
 
@@ -277,38 +232,23 @@ export default function SettingPage() {
     return () => clearInterval(intervalId);
   }, [timeEnd]);
 
-  const handleProductChange = (value) => {
-    setSelectedProductId(value);
-    const product = products.find((item) => item.id === value);
-    if (!product) return;
-    setLink(product.path);
-  };
-
-  const productOptions = [
-    { label: "Select a product", value: "" },
-    ...products.map((product) => ({
-      label: `${product.title} (${product.status})`,
-      value: product.id,
-    })),
-  ];
-  const selectedProduct =
-    products.find((product) => product.id === selectedProductId) || null;
   const remainingTime = getRemainingTimeParts(timeEnd, now);
+  const showCountdown = remainingTime && !remainingTime.expired;
 
   return (
     <Page
-      title={initialSettings ? "Settings Widget" : "Create New Widget"}
+      title={initialSettings ? "Edit Banner" : "Create Banner"}
+      subtitle="Banner chung hien thi tren storefront"
       backAction={{ content: "Back", onAction: () => navigate(-1) }}
     >
       <div style={{ display: "grid", gap: "24px", gridTemplateColumns: "2fr 1fr" }}>
-        
-        {/* Form Section */}
         <fetcher.Form method="post">
           <input type="hidden" name="id" value={initialSettings?.id || ""} />
+          <input type="hidden" name="size" value={size} />
 
           <Card>
             <BlockStack gap="500">
-              <Text variant="headingMd">Widget Settings</Text>
+              <Text variant="headingMd">Banner Settings</Text>
 
               <FormLayout>
                 <TextField
@@ -328,76 +268,42 @@ export default function SettingPage() {
                   autoComplete="off"
                 />
 
-                <TextField
-                  label="Link (optional)"
-                  name="link"
-                  value={link}
-                  onChange={setLink}
-                  placeholder="https://yourstore.com/sale"
-                />
-
-                <Select
-                  label="Browse Product"
-                  value={selectedProductId}
-                  onChange={handleProductChange}
-                  options={productOptions}
-                  helpText="Select a product from your store to fill the link automatically."
-                />
-
-                {selectedProductId ? (
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "12px",
-                      padding: "12px",
-                      border: "1px solid #dfe3e8",
-                      borderRadius: "10px",
-                    }}
-                  >
-                    {selectedProduct?.imageUrl ? (
-                      <img
-                        src={selectedProduct.imageUrl}
-                        alt={selectedProduct.imageAlt}
-                        style={{
-                          width: "56px",
-                          height: "56px",
-                          objectFit: "cover",
-                          borderRadius: "8px",
-                        }}
-                      />
-                    ) : null}
-                    <div>
-                      <Text variant="bodyMd" fontWeight="medium">
-                        {selectedProduct?.title}
-                      </Text>
-                      <Text variant="bodySm" tone="subdued">
-                        {selectedProduct?.path}
-                      </Text>
-                    </div>
-                  </div>
-                ) : null}
-
                 <FormLayout.Group>
                   <div>
-                    <Text variant="bodyMd" as="p" fontWeight="medium">Background Color</Text>
+                    <Text variant="bodyMd" as="p" fontWeight="medium">
+                      Background Color
+                    </Text>
                     <input
                       type="color"
                       name="backgroundColor"
                       value={backgroundColor}
                       onChange={(e) => setBackgroundColor(e.target.value)}
-                      style={{ width: "80px", height: "50px", border: "none", borderRadius: "8px", cursor: "pointer" }}
+                      style={{
+                        width: "80px",
+                        height: "50px",
+                        border: "none",
+                        borderRadius: "8px",
+                        cursor: "pointer",
+                      }}
                     />
                   </div>
 
                   <div>
-                    <Text variant="bodyMd" as="p" fontWeight="medium">Text Color</Text>
+                    <Text variant="bodyMd" as="p" fontWeight="medium">
+                      Text Color
+                    </Text>
                     <input
                       type="color"
                       name="color"
                       value={color}
                       onChange={(e) => setColor(e.target.value)}
-                      style={{ width: "80px", height: "50px", border: "none", borderRadius: "8px", cursor: "pointer" }}
+                      style={{
+                        width: "80px",
+                        height: "50px",
+                        border: "none",
+                        borderRadius: "8px",
+                        cursor: "pointer",
+                      }}
                     />
                   </div>
                 </FormLayout.Group>
@@ -421,18 +327,6 @@ export default function SettingPage() {
                 </FormLayout.Group>
 
                 <FormLayout.Group>
-                  <Select
-                    label="Size"
-                    name="size"
-                    value={size}
-                    onChange={setSize}
-                    options={[
-                      { label: "Small", value: "small" },
-                      { label: "Medium", value: "medium" },
-                      { label: "Large", value: "large" },
-                    ]}
-                  />
-
                   <Select
                     label="Position"
                     name="position"
@@ -470,7 +364,7 @@ export default function SettingPage() {
                     onChange={(value) => setCustomTargetPage(normalizeCustomTargetPage(value))}
                     autoComplete="off"
                     placeholder="/pages/about-us"
-                    helpText="Vi du: /pages/about-us, /products/your-product, /blogs/news."
+                    helpText="Vi du: /pages/about-us, /collections/all, /blogs/news."
                   />
                 ) : (
                   <input type="hidden" name="customTargetPage" value="" />
@@ -482,11 +376,7 @@ export default function SettingPage() {
                   onChange={(value) => setStatus(value)}
                 />
 
-                <input
-                  type="hidden"
-                  name="status"
-                  value={status ? "true" : "false"}
-                />
+                <input type="hidden" name="status" value={status ? "true" : "false"} />
 
                 <Checkbox
                   label="Dismissible (user can close)"
@@ -516,7 +406,7 @@ export default function SettingPage() {
                 <ButtonGroup>
                   <Button onClick={() => navigate(-1)}>Cancel</Button>
                   <Button variant="primary" submit loading={isSaving}>
-                    {initialSettings ? "Save Changes" : "Create Widget"}
+                    {initialSettings ? "Save Changes" : "Create Banner"}
                   </Button>
                 </ButtonGroup>
               </InlineStack>
@@ -524,15 +414,14 @@ export default function SettingPage() {
           </Card>
         </fetcher.Form>
 
-        {/* Live Preview */}
         <Card>
           <BlockStack gap="400">
             <Text variant="headingMd">Live Preview</Text>
 
             <div
               style={{
-                backgroundColor: backgroundColor,
-                color: color,
+                backgroundColor,
+                color,
                 padding: size === "large" ? "28px" : size === "medium" ? "20px" : "14px",
                 borderRadius: "12px",
                 textAlign: "center",
@@ -560,14 +449,15 @@ export default function SettingPage() {
                   marginBottom: 0,
                   opacity: 0.9,
                   fontFamily: contentFont,
-                  fontSize: size === "large" ? "1.05rem" : size === "medium" ? "0.95rem" : "0.9rem",
+                  fontSize:
+                    size === "large" ? "1.05rem" : size === "medium" ? "0.95rem" : "0.9rem",
                   lineHeight: 1.5,
                 }}
               >
                 {content}
               </p>
 
-              {remainingTime ? (
+              {showCountdown ? (
                 <div
                   style={{
                     marginTop: "18px",
@@ -576,73 +466,45 @@ export default function SettingPage() {
                     gap: "10px",
                   }}
                 >
-                  {remainingTime.expired ? (
+                  {[
+                    { label: "Days", value: remainingTime.days },
+                    { label: "Hours", value: remainingTime.hours },
+                    { label: "Minutes", value: remainingTime.minutes },
+                    { label: "Seconds", value: remainingTime.seconds },
+                  ].map((item) => (
                     <div
+                      key={item.label}
                       style={{
-                        gridColumn: "1 / -1",
-                        padding: "12px",
+                        padding: "12px 8px",
                         borderRadius: "10px",
                         backgroundColor: "rgba(255,255,255,0.18)",
-                        fontFamily: contentFont,
-                        fontWeight: 600,
                       }}
                     >
-                      Countdown ended
-                    </div>
-                  ) : (
-                    [
-                      { label: "Days", value: remainingTime.days },
-                      { label: "Hours", value: remainingTime.hours },
-                      { label: "Minutes", value: remainingTime.minutes },
-                      { label: "Seconds", value: remainingTime.seconds },
-                    ].map((item) => (
                       <div
-                        key={item.label}
                         style={{
-                          padding: "12px 8px",
-                          borderRadius: "10px",
-                          backgroundColor: "rgba(255,255,255,0.18)",
+                          fontFamily: titleFont,
+                          fontSize: size === "large" ? "1.35rem" : "1.1rem",
+                          fontWeight: 700,
                         }}
                       >
-                        <div
-                          style={{
-                            fontFamily: titleFont,
-                            fontSize: size === "large" ? "1.35rem" : "1.1rem",
-                            fontWeight: 700,
-                          }}
-                        >
-                          {String(item.value).padStart(2, "0")}
-                        </div>
-                        <div
-                          style={{
-                            marginTop: "4px",
-                            fontFamily: contentFont,
-                            fontSize: "0.8rem",
-                            opacity: 0.9,
-                          }}
-                        >
-                          {item.label}
-                        </div>
+                        {String(item.value).padStart(2, "0")}
                       </div>
-                    ))
-                  )}
+                      <div
+                        style={{
+                          marginTop: "4px",
+                          fontFamily: contentFont,
+                          fontSize: "0.75rem",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.08em",
+                        }}
+                      >
+                        {item.label}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : null}
-              
-            </div>  
-
-            <Card subdued>
-              <BlockStack gap="200">
-                <Text variant="headingSm">Configuration Summary : </Text>
-                <Text>Size: <strong>{size}</strong></Text>
-                <Text>Position: <strong>{position}</strong></Text>
-                <Text>Priority: <strong>{priority}</strong></Text>
-                <Text>Status: <strong>{status ? "Active" : "Disabled"}</strong></Text>
-                {timeEnd && (
-                  <Text>End Time: <strong>{new Date(timeEnd).toLocaleString()}</strong></Text>
-                )}
-              </BlockStack>
-            </Card>
+            </div>
           </BlockStack>
         </Card>
       </div>

@@ -1,3 +1,4 @@
+
 <div id="settings-banner-root" {{ block.shopify_attributes }}></div>
 
 <style>
@@ -148,7 +149,8 @@
     if (!root) return;
 
     const dismissedKey = "settings-banner-dismissed";
-
+    const currentProductId = {{ product.id | json }};
+ 
     function normalizePath(value) {
       if (!value) return "/";
 
@@ -177,7 +179,7 @@
       if (pathname.startsWith("/pages/")) return "page";
       return "custom";
     }
-
+  
     function matchesTargetPage(targetPage, pathname) {
       if (!targetPage || targetPage === "all") return true;
 
@@ -192,6 +194,18 @@
       return false;
     }
 
+    function normalizeProductId(value) {
+      if (value === null || value === undefined || value === "") return "";
+      return String(value).split("/").pop();
+    }
+
+    function matchesTargetProduct(targetProductId, pathname) {
+      if (!targetProductId) return true;
+      if (pageTypeFromPath(pathname) !== "product") return false;
+
+      return normalizeProductId(targetProductId) === normalizeProductId(currentProductId);
+    }
+    
     function setBodyOffset() {
       const topStack = root.querySelector(".settings-banner-stack--top");
       const height = topStack ? topStack.offsetHeight : 0;
@@ -218,7 +232,7 @@
 
     function formatCountdownMarkup(parts) {
       if (!parts) {
-        return '<span class="settings-banner__text">Ended</span>';
+        return "";
       }
 
       return [
@@ -235,7 +249,7 @@
         );
       }).join("");
     }
-
+    
     function createBannerNode(banner) {
       const wrapper = document.createElement("div");
       wrapper.className = "settings-banner";
@@ -250,6 +264,10 @@
       const initialCountdownParts = banner.timeEnd
         ? getCountdownParts(new Date(banner.timeEnd).getTime())
         : null;
+
+      if (banner.timeEnd && !initialCountdownParts) {
+        return null;
+      }
 
       wrapper.innerHTML =
         '<div class="settings-banner__layout">' +
@@ -281,7 +299,19 @@
         const endTime = new Date(banner.timeEnd).getTime();
         if (!Number.isNaN(endTime)) {
           const updateCountdown = function () {
-            countdownNode.innerHTML = formatCountdownMarkup(getCountdownParts(endTime));
+            const parts = getCountdownParts(endTime);
+
+            if (!parts) {
+              wrapper.remove();
+              if (!root.querySelector(".settings-banner")) {
+                clearBodyOffset();
+              } else {
+                setBodyOffset();
+              }
+              return;
+            }
+
+            countdownNode.innerHTML = formatCountdownMarkup(parts);
           };
 
           updateCountdown();
@@ -301,6 +331,7 @@
 
       banners.forEach(function (banner) {
         const bannerNode = createBannerNode(banner);
+        if (!bannerNode) return;
         if (banner.position === "bottom") {
           bottomStack.appendChild(bannerNode);
         } else {
@@ -329,6 +360,7 @@
         
         const matchedBanners = (data.banners || []).filter(function (banner) {
           if (!matchesTargetPage(banner.targetPage, pathname)) return false;
+          if (!matchesTargetProduct(banner.targetProductId, pathname)) return false;
           if (dismissedBannerId && String(banner.id) === dismissedBannerId) return false;
           return true;
         });

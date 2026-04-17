@@ -1,3 +1,5 @@
+/* eslint-disable react/prop-types */
+
 import {
   Page,
   Layout,
@@ -9,21 +11,57 @@ import {
   Badge,
   EmptyState,
   IndexTable,
-  useIndexResourceState,
   Box,
-  Divider,
 } from "@shopify/polaris";
-
-import React, { useState, useCallback } from "react";
-import {
-  Popover,
-  ActionList,
-} from "@shopify/polaris";
-
+import { Popover, ActionList } from "@shopify/polaris";
 import { MenuHorizontalIcon } from "@shopify/polaris-icons";
+import { useState, useCallback } from "react";
 import { useNavigate, useLoaderData, useFetcher } from "react-router";
+
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
+
+function getBannerStatus(banner) {
+  const isTimeEnded = banner.timeEnd && new Date(banner.timeEnd).getTime() <= Date.now();
+
+  if (isTimeEnded) {
+    return { tone: "attention", label: "Time End" };
+  }
+
+  return banner.status
+    ? { tone: "success", label: "Active" }
+    : { tone: "critical", label: "Disabled" };
+}
+
+async function loadProductMap(admin, productBanners) {
+  const ids = [...new Set(productBanners.map((banner) => banner.targetProductId).filter(Boolean))];
+  if (ids.length === 0) return {};
+
+  const response = await admin.graphql(
+    `#graphql
+      query ProductBannerIndexProducts($ids: [ID!]!) {
+        nodes(ids: $ids) {
+          ... on Product {
+            id
+            title
+            handle
+            status
+          }
+        }
+      }
+    `,
+    { variables: { ids } },
+  );
+
+  const responseJson = await response.json();
+  const products = responseJson.data?.nodes || [];
+
+  return products.reduce((accumulator, product) => {
+    if (!product?.id) return accumulator;
+    accumulator[product.id] = product;
+    return accumulator;
+  }, {});
+}
 
 export const action = async ({ request }) => {
   const { session } = await authenticate.admin(request);
@@ -32,31 +70,23 @@ export const action = async ({ request }) => {
 
   if (intent === "delete") {
     const id = Number(formData.get("id"));
-    await prisma.app_banner.delete({ where: { id } });
-    return { ok: true };
-  }
-
-  if (intent === "bulk-delete") {
-    const ids = formData
-      .getAll("ids")
-      .map((value) => Number(value))
-      .filter((value) => Number.isInteger(value) && value > 0);
-
-    if (ids.length === 0) return { ok: false };
-
     await prisma.app_banner.deleteMany({
       where: {
-        id: { in: ids },
+        id,
         shop: session.shop,
       },
     });
-
     return { ok: true };
   }
 
   if (intent === "duplicate") {
     const id = Number(formData.get("id"));
-    const banner = await prisma.app_banner.findUnique({ where: { id } });
+    const banner = await prisma.app_banner.findFirst({
+      where: {
+        id,
+        shop: session.shop,
+      },
+    });
 
     if (!banner) return { ok: false };
 
@@ -64,32 +94,57 @@ export const action = async ({ request }) => {
       data: {
         ...banner,
         id: undefined,
-        title: banner.title + " (Copy)",
+        title: `${banner.title} (Copy)`,
         createdAt: undefined,
         updatedAt: undefined,
       },
     });
+
     return { ok: true };
   }
+
   return null;
 };
 
 export const loader = async ({ request }) => {
-  const { session } = await authenticate.admin(request);
-  const banners = await prisma.app_banner.findMany({
-    where: { shop: session.shop },
-    orderBy: { createdAt: "desc" },
-  });
-  return banners;
+  const { session, admin } = await authenticate.admin(request);
+
+  const [pageBanners, productBanners] = await Promise.all([
+    prisma.app_banner.findMany({
+      where: {
+        shop: session.shop,
+        targetProductId: null,
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.app_banner.findMany({
+      where: {
+        shop: session.shop,
+        targetProductId: { not: null },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
+
+  const productMap = await loadProductMap(admin, productBanners);
+
+  return { pageBanners, productBanners, productMap };
 };
 
 function RowActionMenu({ banner, navigate, fetcher }) {
   const [active, setActive] = useState(false);
   const toggleActive = useCallback(() => setActive((prev) => !prev), []);
   const close = useCallback(() => setActive(false), []);
+  const editPath = banner.targetProductId
+    ? `/app/productBanner?id=${banner.id}`
+    : `/app/settingPage?id=${banner.id}`;
 
   return (
-    <div onClick={(e) => e.stopPropagation()}>
+    <div
+      role="presentation"
+      onClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => event.stopPropagation()}
+    >
       <Popover
         active={active}
         activator={
@@ -101,15 +156,15 @@ function RowActionMenu({ banner, navigate, fetcher }) {
           items={[
             {
               content: "Edit",
-              onAction: () => navigate(`/app/settingPage?id=${banner.id}`),
+              onAction: () => navigate(editPath),
             },
             {
               content: "Duplicate",
               onAction: () => {
-                const formData = new FormData();
-                formData.append("id", banner.id);
-                formData.append("intent", "duplicate");
-                fetcher.submit(formData, { method: "post" });
+                const nextFormData = new FormData();
+                nextFormData.append("id", banner.id);
+                nextFormData.append("intent", "duplicate");
+                fetcher.submit(nextFormData, { method: "post" });
               },
             },
             {
@@ -117,10 +172,10 @@ function RowActionMenu({ banner, navigate, fetcher }) {
               destructive: true,
               onAction: () => {
                 if (!confirm("Delete this banner?")) return;
-                const formData = new FormData();
-                formData.append("id", banner.id);
-                formData.append("intent", "delete");
-                fetcher.submit(formData, { method: "post" });
+                const nextFormData = new FormData();
+                nextFormData.append("id", banner.id);
+                nextFormData.append("intent", "delete");
+                fetcher.submit(nextFormData, { method: "post" });
               },
             },
           ]}
@@ -132,32 +187,17 @@ function RowActionMenu({ banner, navigate, fetcher }) {
 
 export default function Homepage() {
   const navigate = useNavigate();
-  const banners = useLoaderData();
   const fetcher = useFetcher();
+  const { pageBanners, productBanners, productMap } = useLoaderData();
+  const activePageBanners = pageBanners.filter((banner) => getBannerStatus(banner).label === "Active");
+  const activeProductBanners = productBanners.filter(
+    (banner) => getBannerStatus(banner).label === "Active",
+  );
 
-  const resourceName = { singular: "banner", plural: "banners" };
-
-  const {
-    selectedResources,
-    allResourcesSelected,
-    handleSelectionChange,
-  } = useIndexResourceState(banners);
-
-  const handleBulkDelete = () => {
-    if (selectedResources.length === 0) return;
-    if (!confirm(`Delete ${selectedResources.length} selected widget?`)) return;
-
-    const formData = new FormData();
-    formData.append("intent", "bulk-delete");
-    selectedResources.forEach((id) => formData.append("ids", id));
-    fetcher.submit(formData, { method: "post" });
-  };
-
-  const rowMarkup = banners.map((banner, index) => (
+  const pageRows = pageBanners.map((banner, index) => (
     <IndexTable.Row
       id={banner.id.toString()}
       key={banner.id}
-      selected={selectedResources.includes(banner.id.toString())}
       position={index}
       onClick={() => navigate(`/app/settingPage?id=${banner.id}`)}
     >
@@ -166,136 +206,217 @@ export default function Homepage() {
           {banner.title}
         </Text>
       </IndexTable.Cell>
-
+      <IndexTable.Cell>
+        <Text tone="subdued" variant="bodySm">
+          {banner.targetPage || "all"}
+        </Text>
+      </IndexTable.Cell>
       <IndexTable.Cell>
         <Text tone="subdued" variant="bodySm">
           {banner.content}
         </Text>
       </IndexTable.Cell>
-
       <IndexTable.Cell>
-        <Badge tone="info">{banner.size || "Bar"}</Badge>
-      </IndexTable.Cell>
-
-      <IndexTable.Cell>
-        <Badge tone={banner.status ? "success" : "critical"}>
-          {banner.status ? "Active" : "Disabled"}
+        <Badge tone={getBannerStatus(banner).tone}>
+          {getBannerStatus(banner).label}
         </Badge>
       </IndexTable.Cell>
-
       <IndexTable.Cell>
-
-        <RowActionMenu 
-        banner={banner} 
-        navigate={navigate} 
-        fetcher={fetcher} />
-
+        <RowActionMenu banner={banner} navigate={navigate} fetcher={fetcher} />
       </IndexTable.Cell>
-      
     </IndexTable.Row>
   ));
 
+  const productRows = productBanners.map((banner, index) => {
+    const product = productMap[banner.targetProductId];
+
+    return (
+      <IndexTable.Row
+        id={banner.id.toString()}
+        key={banner.id}
+        position={index}
+        onClick={() => navigate(`/app/productBanner?id=${banner.id}`)}
+      >
+        <IndexTable.Cell>
+          <Text variant="bodyMd" fontWeight="semibold">
+            {banner.title}
+          </Text>
+        </IndexTable.Cell>
+        <IndexTable.Cell>
+          <Text tone="subdued" variant="bodySm">
+            {product?.title || banner.link || banner.targetProductId}
+          </Text>
+        </IndexTable.Cell>
+        <IndexTable.Cell>
+          <Badge tone="info">{banner.position === "bottom" ? "Bottom" : "Top"}</Badge>
+        </IndexTable.Cell>
+        <IndexTable.Cell>
+          <Badge tone={getBannerStatus(banner).tone}>
+            {getBannerStatus(banner).label}
+          </Badge>
+        </IndexTable.Cell>
+        <IndexTable.Cell>
+          <RowActionMenu banner={banner} navigate={navigate} fetcher={fetcher} />
+        </IndexTable.Cell>
+      </IndexTable.Row>
+    );
+  });
+
   return (
-    <Page
-      title="Củ Khoai APP countdown "
-      subtitle="Manage your countdown widgets"
-      secondaryActions={[
-        {
-          content: `Delete`,
-          onAction: handleBulkDelete,
-          destructive: true,
-          disabled: selectedResources.length === 0 || fetcher.state === "submitting",
-        },
-      ]}
-      primaryAction={{
-        content: "Create",
-        onAction: () => navigate("/app/settingPage"),
-      }}
-    >
+    <Page title="Củ Khoai APP countdown" subtitle="Report va danh sach tat ca banner">
       <Layout>
         <Layout.Section>
           <InlineStack gap="400" wrap={false}>
             <Card>
               <Box padding="500">
                 <BlockStack gap="200">
-                  <Text variant="bodySm" tone="subdued">Active widgets</Text>
+                  <Text variant="bodySm" tone="subdued">
+                    Active page banners
+                  </Text>
                   <Text variant="heading2xl" fontWeight="bold" tone="success">
-                    {banners.filter((b) => b.status).length}
+                    {activePageBanners.length}
                   </Text>
                 </BlockStack>
-              </Box>  
+              </Box>
             </Card>
 
             <Card>
               <Box padding="500">
                 <BlockStack gap="200">
-                  <Text variant="bodySm" tone="subdued">Total widgets</Text>
+                  <Text variant="bodySm" tone="subdued">
+                    Total page banners
+                  </Text>
                   <Text variant="heading2xl" fontWeight="bold">
-                    {banners.length}
+                    {pageBanners.length}
+                  </Text>
+                </BlockStack>
+              </Box>
+            </Card>
+
+            <Card>
+              <Box padding="500">
+                <BlockStack gap="200">
+                  <Text variant="bodySm" tone="subdued">
+                    Active product banners
+                  </Text>
+                  <Text variant="heading2xl" fontWeight="bold" tone="success">
+                    {activeProductBanners.length}
+                  </Text>
+                </BlockStack>
+              </Box>
+            </Card>
+
+            <Card>
+              <Box padding="500">
+                <BlockStack gap="200">
+                  <Text variant="bodySm" tone="subdued">
+                    Total product banners
+                  </Text>
+                  <Text variant="heading2xl" fontWeight="bold">
+                    {productBanners.length}
                   </Text>
                 </BlockStack>
               </Box>
             </Card>
           </InlineStack>
         </Layout.Section>
-        
+
+        <Layout.Section>
+          <InlineStack gap="400" wrap={false}>
+            <Card>
+              <Box padding="500">
+                <BlockStack gap="300">
+                  <Text variant="headingMd">Create Page Banner</Text>
+                  <Text tone="subdued" variant="bodySm">
+                    Trang nay chi de tao banner cho page.
+                  </Text>
+                  <Button variant="primary" onClick={() => navigate("/app/settingPage")}>
+                    Create page banner
+                  </Button>
+                </BlockStack>
+              </Box>
+            </Card>
+
+            <Card>
+              <Box padding="500">
+                <BlockStack gap="300">
+                  <Text variant="headingMd">Create Product Banner</Text>
+                  <Text tone="subdued" variant="bodySm">
+                    Trang nay chi de tao banner cho product.
+                  </Text>
+                  <Button variant="primary" onClick={() => navigate("/app/productBanner")}>
+                    Create product banner
+                  </Button>
+                </BlockStack>
+              </Box>
+            </Card>
+          </InlineStack>
+        </Layout.Section>
+
         <Layout.Section>
           <Card>
-            {banners.length === 0 ? (
-              <EmptyState
-                heading="No widgets yet"
-                action={{
-                  content: "Create your first widget",
-                  onAction: () => navigate("/app/settingPage"),
-                }}
-              >
-                <p>Start creating beautiful countdown timers for your store.</p>
-              </EmptyState>
-            ) : (
-              <IndexTable
-                resourceName={resourceName}
-                itemCount={banners.length}
-                selectedItemsCount={
-                  allResourcesSelected ? "All" : selectedResources.length
-                }
-                onSelectionChange={handleSelectionChange}
-                headings={[
-                  { title: "Widget name" },
-                  { title: "Description" },
-                  { title: "Type" },
-                  { title: "Status" },
-                  { title: "" },
-                ]}
-              >
-                {rowMarkup}
-              </IndexTable>
-            )}
+            <BlockStack gap="300">
+              <Text variant="headingMd">Page Banners</Text>
+              {pageBanners.length === 0 ? (
+                <EmptyState
+                  heading="No page banners yet"
+                  action={{
+                    content: "Create page banner",
+                    onAction: () => navigate("/app/settingPage"),
+                  }}
+                >
+                  <p>Danh sach page banner se hien thi o day.</p>
+                </EmptyState>
+              ) : (
+                <IndexTable
+                  resourceName={{ singular: "page banner", plural: "page banners" }}
+                  itemCount={pageBanners.length}
+                  headings={[
+                    { title: "Banner name" },
+                    { title: "Display page" },
+                    { title: "Description" },
+                    { title: "Status" },
+                    { title: "" },
+                  ]}
+                >
+                  {pageRows}
+                </IndexTable>
+              )}
+            </BlockStack>
           </Card>
         </Layout.Section>
-  
+
         <Layout.Section>
-            <div style={{ padding: "16px", textAlign: "center" }}>
-              <InlineStack gap="400" align="center">
-                <Button variant="plain" onClick={() => navigate("/app/faq")}>
-                  View FAQ
-                </Button>
-
-                <Button
-                  variant="plain"
-                  onClick={() => navigate("/app/manual")}
+          <Card>
+            <BlockStack gap="300">
+              <Text variant="headingMd">Product Banners</Text>
+              {productBanners.length === 0 ? (
+                <EmptyState
+                  heading="No product banners yet"
+                  action={{
+                    content: "Create product banner",
+                    onAction: () => navigate("/app/productBanner"),
+                  }}
                 >
-                  View user manual
-                </Button>
-
-                <Button
-                  variant="plain"
-                  onClick={() => navigate("/app/updates")}
+                  <p>Danh sach product banner se hien thi o day.</p>
+                </EmptyState>
+              ) : (
+                <IndexTable
+                  resourceName={{ singular: "product banner", plural: "product banners" }}
+                  itemCount={productBanners.length}
+                  headings={[
+                    { title: "Banner name" },
+                    { title: "Product" },
+                    { title: "Position" },
+                    { title: "Status" },
+                    { title: "" },
+                  ]}
                 >
-                  Join us on X for updates
-                </Button>
-              </InlineStack>
-            </div>
-    
+                  {productRows}
+                </IndexTable>
+              )}
+            </BlockStack>
+          </Card>
         </Layout.Section>
       </Layout>
     </Page>
