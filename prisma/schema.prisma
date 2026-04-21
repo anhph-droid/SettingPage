@@ -68,4 +68,8 @@ model app_banner {
   dismissible     Boolean   @default(true)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+  borderColor    String  @default("#cccccc")
+  borderWidth    String  @default("0")
+  borderStyle    String  @default("solid")
+  borderRadius   String  @default("0")
 }

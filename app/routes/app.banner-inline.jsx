@@ -140,6 +140,10 @@ export const action = async ({ request }) => {
     formData.get("customTargetPage")?.toString() || "",
   );
   const timeEndStr = formData.get("timeEnd")?.toString().trim();
+  const borderColor = formData.get("borderColor")?.toString() || "#cccccc";
+  const borderWidth = formData.get("borderWidth")?.toString() || "0";
+  const borderStyle = formData.get("borderStyle")?.toString() || "solid";
+  const borderRadius = formData.get("borderRadius")?.toString() || "0";
   const normalizedTargetPage =
     targetPage === "custom"
       ? customTargetPage
@@ -154,11 +158,15 @@ export const action = async ({ request }) => {
     link: null,
     color,
     backgroundColor,
-    size,
+    size, 
     position,
     priority,
     status,
     dismissible,
+    borderColor,
+    borderWidth,
+    borderStyle,
+    borderRadius,
     targetProductId: null,
     targetPage: normalizedTargetPage,
     timeEnd: timeEndStr ? new Date(timeEndStr) : null,
@@ -240,6 +248,10 @@ export default function SettingPage() {
   const remainingTime = getRemainingTimeParts(timeEnd, now);
   const showCountdown = remainingTime && !remainingTime.expired;
   const previewStyle = getBannerPreviewStyle(size);
+  const [borderColor, setBorderColor] = useState(initialSettings?.borderColor || "#cccccc");
+  const [borderWidth, setBorderWidth] = useState(initialSettings?.borderWidth || "0");
+  const [borderStyle, setBorderStyle] = useState(initialSettings?.borderStyle || "solid");
+  const [borderRadius, setBorderRadius] = useState(initialSettings?.borderRadius || "0");
 
   return (
     <Page
@@ -343,6 +355,56 @@ export default function SettingPage() {
                     ]}
                   />
                 </FormLayout.Group>
+                <Text variant="headingMd">Border & Shape</Text>
+
+                  <FormLayout.Group>
+                    <div>
+                      <Text variant="bodyMd" as="p" fontWeight="medium">Border Color</Text>
+                      <input
+                        type="color"
+                        name="borderColor"
+                        value={borderColor}
+                        onChange={(e) => setBorderColor(e.target.value)}
+                        style={{ width: "80px", height: "50px", border: "none", borderRadius: "8px", cursor: "pointer" }}
+                      />
+                    </div>
+
+                    <Select
+                      label="Border Style"
+                      name="borderStyle"
+                      value={borderStyle}
+                      onChange={setBorderStyle}
+                      options={[
+                        { label: "None", value: "none" },
+                        { label: "Solid", value: "solid" },
+                        { label: "Dashed", value: "dashed" },
+                        { label: "Dotted", value: "dotted" },
+                      ]}
+                    />
+                  </FormLayout.Group>
+
+                  <FormLayout.Group>
+                    <TextField
+                      label="Border Width (px)"
+                      type="number"
+                      name="borderWidth"
+                      value={borderWidth}
+                      onChange={setBorderWidth}
+                      suffix="px"
+                      min={0}
+                      max={20}
+                    />
+                    <TextField
+                      label="Border Radius (px)"
+                      type="number"
+                      name="borderRadius"
+                      value={borderRadius}
+                      onChange={setBorderRadius}
+                      suffix="px"
+                      min={0}
+                      max={100}
+                    />
+                  </FormLayout.Group>
 
                 <TextField
                   label="Priority"
@@ -429,7 +491,8 @@ export default function SettingPage() {
                 color,
                 ...previewStyle.container,
                 textAlign: "center",
-                border: "1px solid #ddd",
+                border: borderStyle === "none" ? "none" : `${borderWidth}px ${borderStyle} ${borderColor}`,
+                borderRadius: `${borderRadius}px`,
                 display: "flex",
                 flexDirection: "column",
                 justifyContent: "center",

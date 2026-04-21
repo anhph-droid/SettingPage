@@ -41,6 +41,7 @@ const PAGE_OPTIONS = [
   { label: "Search", value: "search" },
   { label: "Cart page", value: "cart" },
   { label: "Custom URL / path", value: "custom" },
+  { label: "Product page", value: "product" }, // thêm để UX rõ hơn (tuỳ chọn)
 ];
 
 const DEFAULT_SETTINGS = {
@@ -59,12 +60,9 @@ const DEFAULT_SETTINGS = {
 
 function getRemainingTimeParts(timeEndValue, now) {
   if (!timeEndValue) return null;
-
   const endTime = new Date(timeEndValue).getTime();
   if (Number.isNaN(endTime)) return null;
-
   const distance = Math.max(endTime - now, 0);
-
   return {
     expired: distance === 0,
     days: Math.floor(distance / 86400000),
@@ -77,7 +75,6 @@ function getRemainingTimeParts(timeEndValue, now) {
 function normalizeCustomTargetPage(value) {
   const trimmed = value.trim();
   if (!trimmed) return "";
-
   try {
     if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
       const url = new URL(trimmed);
@@ -86,7 +83,6 @@ function normalizeCustomTargetPage(value) {
   } catch {
     return trimmed;
   }
-
   return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
 }
 
@@ -94,14 +90,12 @@ function getTargetPageState(targetPageValue) {
   if (!targetPageValue || targetPageValue === "all") {
     return { selectedTargetPage: "all", customTargetPage: "" };
   }
-
   if (targetPageValue.startsWith("custom:")) {
     return {
       selectedTargetPage: "custom",
       customTargetPage: targetPageValue.slice("custom:".length),
     };
   }
-
   return { selectedTargetPage: targetPageValue, customTargetPage: "" };
 }
 
@@ -140,6 +134,14 @@ export const action = async ({ request }) => {
     formData.get("customTargetPage")?.toString() || "",
   );
   const timeEndStr = formData.get("timeEnd")?.toString().trim();
+ 
+  const targetProductIdRaw = formData.get("targetProductId")?.toString().trim() || "";
+  const targetProductId = targetProductIdRaw || null;
+  const borderColor = formData.get("borderColor")?.toString() || "#cccccc";
+  const borderWidth = formData.get("borderWidth")?.toString() || "0";
+  const borderStyle = formData.get("borderStyle")?.toString() || "solid";
+  const borderRadius = formData.get("borderRadius")?.toString() || "0";
+
   const normalizedTargetPage =
     targetPage === "custom"
       ? customTargetPage
@@ -159,16 +161,17 @@ export const action = async ({ request }) => {
     priority,
     status,
     dismissible,
-    targetProductId: null,
+    borderColor,
+    borderWidth,
+    borderStyle,
+    borderRadius,
+    targetProductId, 
     targetPage: normalizedTargetPage,
     timeEnd: timeEndStr ? new Date(timeEndStr) : null,
   };
 
   if (id) {
-    await prisma.app_banner.update({
-      where: { id: Number(id) },
-      data,
-    });
+    await prisma.app_banner.update({ where: { id: Number(id) }, data });
   } else {
     await prisma.app_banner.create({ data });
   }
@@ -206,15 +209,39 @@ export default function SettingPage() {
   );
   const initialTargetPageState = getTargetPageState(initialSettings?.targetPage);
   const [targetPage, setTargetPage] = useState(initialTargetPageState.selectedTargetPage);
-  const [customTargetPage, setCustomTargetPage] = useState(initialTargetPageState.customTargetPage);
+  const [customTargetPage, setCustomTargetPage] = useState(
+    initialTargetPageState.customTargetPage,
+  );
   const [timeEnd, setTimeEnd] = useState(
     initialSettings?.timeEnd
       ? new Date(initialSettings.timeEnd).toISOString().slice(0, 16)
       : "",
   );
   const [now, setNow] = useState(Date.now());
+  const [borderColor, setBorderColor] = useState(initialSettings?.borderColor || "#cccccc");
+  const [borderWidth, setBorderWidth] = useState(initialSettings?.borderWidth || "0");
+  const [borderStyle, setBorderStyle] = useState(initialSettings?.borderStyle || "solid");
+  const [borderRadius, setBorderRadius] = useState(initialSettings?.borderRadius || "0");
+
+
+  const [selectedProducts, setSelectedProducts] = useState(
+    initialSettings?.targetProductId
+    ? initialSettings.targetProductId.split(",").map((id) => ({ id, title: id }))
+    : [],
+  );
 
   const isSaving = fetcher.state === "submitting";
+
+  const handleSelectProduct = async () => {
+        const selected = await shopify.resourcePicker({
+    type: "product",
+    multiple: true,
+    selectionIds: selectedProducts.map((p) => ({ id: p.id })),
+  });
+  if (selected?.length > 0) {
+    setSelectedProducts(selected.map((p) => ({ id: p.id, title: p.title })));
+  }
+  };
 
   useEffect(() => {
     if (fetcher.data?.ok) {
@@ -228,12 +255,8 @@ export default function SettingPage() {
 
   useEffect(() => {
     if (!timeEnd) return undefined;
-
     setNow(Date.now());
-    const intervalId = setInterval(() => {
-      setNow(Date.now());
-    }, 1000);
-
+    const intervalId = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(intervalId);
   }, [timeEnd]);
 
@@ -272,6 +295,43 @@ export default function SettingPage() {
                   multiline={4}
                   autoComplete="off"
                 />
+                  <div>
+                    <Text variant="bodyMd" as="p" fontWeight="medium">
+                      Target Products{" "}
+                      <span style={{ fontWeight: 400, color: "#6d7175" }}>(optional)</span>
+                    </Text>
+                    <div style={{ marginTop: "8px" }}>
+                      <Button onClick={handleSelectProduct}>
+                        {selectedProducts.length > 0 ? "Add / Change Products" : "Select Products"}
+                      </Button>
+                      {selectedProducts.length > 0 && (
+                        <div style={{ marginTop: "12px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                          {selectedProducts.map((p) => (
+                            <InlineStack key={p.id} gap="300" blockAlign="center">
+                              <Text variant="bodyMd">{p.title}</Text>
+                              <Text variant="bodySm" tone="subdued">{p.id}</Text>
+                              <Button
+                                variant="plain"
+                                tone="critical"
+                                onClick={() =>
+                                  setSelectedProducts((prev) => prev.filter((x) => x.id !== p.id))
+                                }
+                              >
+                                Remove
+                              </Button>
+                            </InlineStack>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <input
+                      type="hidden"
+                      name="targetProductId"
+                      value={selectedProducts.map((p) => p.id).join(",")}
+                    />
+                  </div>
+
+                <div>Setting Backgroud Small</div>
 
                 <FormLayout.Group>
                   <div>
@@ -321,7 +381,6 @@ export default function SettingPage() {
                     onChange={setTitleFont}
                     options={FONT_OPTIONS}
                   />
-
                   <Select
                     label="Content Font"
                     name="contentFont"
@@ -341,6 +400,56 @@ export default function SettingPage() {
                       { label: "Top", value: "top" },
                       { label: "Bottom", value: "bottom" },
                     ]}
+                  />
+                </FormLayout.Group>
+
+                <Text variant="headingMd">Border & Shape</Text>
+                <FormLayout.Group>
+                  <div>
+                    <Text variant="bodyMd" as="p" fontWeight="medium">Border Color</Text>
+                    <input
+                      type="color"
+                      name="borderColor"
+                      value={borderColor}
+                      onChange={(e) => setBorderColor(e.target.value)}
+                      style={{ width: "80px", height: "50px", border: "none", borderRadius: "8px", cursor: "pointer" }}
+                    />
+                  </div>
+
+                  <Select
+                    label="Border Style"
+                    name="borderStyle"
+                    value={borderStyle}
+                    onChange={setBorderStyle}
+                    options={[
+                      { label: "None", value: "none" },
+                      { label: "Solid", value: "solid" },
+                      { label: "Dashed", value: "dashed" },
+                      { label: "Dotted", value: "dotted" },
+                    ]}
+                  />
+                </FormLayout.Group>
+
+                <FormLayout.Group>
+                  <TextField
+                    label="Border Width (px)"
+                    type="number"
+                    name="borderWidth"
+                    value={borderWidth}
+                    onChange={setBorderWidth}
+                    suffix="px"
+                    min={0}
+                    max={20}
+                  />
+                  <TextField
+                    label="Border Radius (px)"
+                    type="number"
+                    name="borderRadius"
+                    value={borderRadius}
+                    onChange={setBorderRadius}
+                    suffix="px"
+                    min={0}
+                    max={100}
                   />
                 </FormLayout.Group>
 
@@ -366,7 +475,9 @@ export default function SettingPage() {
                     label="Custom storefront path"
                     name="customTargetPage"
                     value={customTargetPage}
-                    onChange={(value) => setCustomTargetPage(normalizeCustomTargetPage(value))}
+                    onChange={(value) =>
+                      setCustomTargetPage(normalizeCustomTargetPage(value))
+                    }
                     autoComplete="off"
                     placeholder="/pages/about-us"
                     helpText="Vi du: /pages/about-us, /collections/all, /blogs/news."
@@ -374,13 +485,11 @@ export default function SettingPage() {
                 ) : (
                   <input type="hidden" name="customTargetPage" value="" />
                 )}
-
                 <Checkbox
                   label="Active (Status)"
                   checked={status}
                   onChange={(value) => setStatus(value)}
                 />
-
                 <input type="hidden" name="status" value={status ? "true" : "false"} />
 
                 <Checkbox
@@ -388,7 +497,6 @@ export default function SettingPage() {
                   checked={dismissible}
                   onChange={(value) => setDismissible(value)}
                 />
-
                 <input
                   type="hidden"
                   name="dismissible"
@@ -419,20 +527,21 @@ export default function SettingPage() {
           </Card>
         </fetcher.Form>
 
+        {/* Preview panel giữ nguyên */}
         <Card>
           <BlockStack gap="400">
             <Text variant="headingMd">Live Preview</Text>
-
             <div
               style={{
-                backgroundColor,
-                color,
-                ...previewStyle.container,
-                textAlign: "center",
-                border: "1px solid #ddd",
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "center",
+                  backgroundColor,
+                  color,
+                  ...previewStyle.container,
+                  textAlign: "center",
+                  border: borderStyle === "none" ? "none" : `${borderWidth}px ${borderStyle} ${borderColor}`,
+                  borderRadius: `${borderRadius}px`,
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "center",
               }}
             >
               <h3

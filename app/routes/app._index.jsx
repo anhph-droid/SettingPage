@@ -1,4 +1,4 @@
-import { BlockStack, Button, Card, InlineStack, Page, Text } from "@shopify/polaris";
+import { BlockStack, Button, Card, InlineStack, Link, Page, Text } from "@shopify/polaris";
 import { useNavigate } from "react-router";
 
 const WIDGET_TYPES = [
@@ -36,7 +36,7 @@ function PreviewCard({ preset }) {
   const previewStyleMap = {
     bar: { width: "92%", height: "28px", top: "22px", left: "4%" },
     small: { width: "32%", height: "88px", top: "72px", right: "6%" },
-    inline: { width: "36%", height: "76px", top: "12px", right: "8%" },
+    inline: { width: "32%",  height: "170px",  top: "20px",  right: "5%" },
     large: { width: "86%", height: "104px", top: "42px", left: "7%" },
   };
 
@@ -170,6 +170,36 @@ export default function HomePage() {
           </Card>
         ))}
       </div>
+       <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              gap: "24px",
+              marginTop: "20px",
+              fontSize: "14px",
+            }}
+          >
+            <span
+              style={{ cursor: "pointer", textDecoration: "underline", color: "#6d7175" }}
+              onClick={() => navigate("/faq")}
+            >
+              View FAQ
+            </span>
+
+            <span
+              style={{ cursor: "pointer", textDecoration: "underline", color: "#6d7175" }}
+              onClick={() => navigate("/manual")}
+            >
+              View user manual
+            </span>
+
+            <span
+              style={{ cursor: "pointer", textDecoration: "underline", color: "#6d7175" }}
+              onClick={() => navigate("/updates")}
+            >
+              Join us on X for updates
+            </span>
+          </div>
     </Page>
   );
 }
