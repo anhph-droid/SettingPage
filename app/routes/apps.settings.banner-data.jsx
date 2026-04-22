@@ -5,6 +5,7 @@ export const loader = async ({ request }) => {
   const url = new URL(request.url);
   const { session } = await authenticate.public.appProxy(request);
   const shop = session?.shop || url.searchParams.get("shop");
+  const bannerId = Number(url.searchParams.get("bannerId"));
   const now = new Date();
 
   if (!shop) {
@@ -20,6 +21,7 @@ export const loader = async ({ request }) => {
   const banners = await prisma.app_banner.findMany({
     where: {
       shop,
+      ...(Number.isInteger(bannerId) && bannerId > 0 ? { id: bannerId } : {}),
       status: true,
       OR: [
         { timeEnd: null },
@@ -35,6 +37,7 @@ export const loader = async ({ request }) => {
       title: true,
       content: true,
       link: true,
+      size: true,
       backgroundColor: true,
       color: true,
       position: true,
@@ -42,6 +45,10 @@ export const loader = async ({ request }) => {
       targetPage: true,
       targetProductId: true,
       dismissible: true,
+      borderColor: true,
+      borderWidth: true,
+      borderStyle: true,
+      borderRadius: true,
     },
   });
 

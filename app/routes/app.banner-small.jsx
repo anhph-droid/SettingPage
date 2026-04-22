@@ -340,7 +340,6 @@ export default function SettingPage() {
                     </Text>
                     <input
                       type="color"
-                      name="backgroundColor"
                       value={backgroundColor}
                       onChange={(e) => setBackgroundColor(e.target.value)}
                       style={{
@@ -351,6 +350,7 @@ export default function SettingPage() {
                         cursor: "pointer",
                       }}
                     />
+                    <input type="hidden" name="backgroundColor" value={backgroundColor} />
                   </div>
 
                   <div>
@@ -359,7 +359,6 @@ export default function SettingPage() {
                     </Text>
                     <input
                       type="color"
-                      name="color"
                       value={color}
                       onChange={(e) => setColor(e.target.value)}
                       style={{
@@ -370,6 +369,7 @@ export default function SettingPage() {
                         cursor: "pointer",
                       }}
                     />
+                    <input type="hidden" name="color" value={color} />
                   </div>
                 </FormLayout.Group>
 
@@ -411,7 +411,7 @@ export default function SettingPage() {
                       type="color"
                       name="borderColor"
                       value={borderColor}
-                      onChange={(e) => setBorderColor(e.target.value)}
+                      onChange={(e) => setBorderColor(e.target.value)}      
                       style={{ width: "80px", height: "50px", border: "none", borderRadius: "8px", cursor: "pointer" }}
                     />
                   </div>
@@ -461,14 +461,14 @@ export default function SettingPage() {
                   onChange={(value) => setPriority(Number(value))}
                 />
 
-                <Select
+                {/* <Select
                   label="Display on page"
                   name="targetPage"
                   value={targetPage}
                   onChange={setTargetPage}
                   options={PAGE_OPTIONS}
                   helpText="Chon trang cua storefront de banner hien thi."
-                />
+                /> */}
 
                 {targetPage === "custom" ? (
                   <TextField

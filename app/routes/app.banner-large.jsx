@@ -292,7 +292,6 @@ export default function SettingPage() {
                     </Text>
                     <input
                       type="color"
-                      name="backgroundColor"
                       value={backgroundColor}
                       onChange={(e) => setBackgroundColor(e.target.value)}
                       style={{
@@ -303,6 +302,7 @@ export default function SettingPage() {
                         cursor: "pointer",
                       }}
                     />
+                    <input type="hidden" name="backgroundColor" value={backgroundColor} />
                   </div>
 
                   <div>
@@ -311,7 +311,6 @@ export default function SettingPage() {
                     </Text>
                     <input
                       type="color"
-                      name="color"
                       value={color}
                       onChange={(e) => setColor(e.target.value)}
                       style={{
@@ -322,6 +321,7 @@ export default function SettingPage() {
                         cursor: "pointer",
                       }}
                     />
+                    <input type="hidden" name="color" value={color} />
                   </div>
                 </FormLayout.Group>
 

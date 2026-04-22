@@ -5,13 +5,22 @@
 
 {% render 'settings-banner-content',
   root_id: settings_banner_embed_root_id,
-  include_block_attributes: false
+  include_block_attributes: false,
+  banner_id: block.settings.banner_id,
+  render_mode: 'embed'
 %}
 
 {% schema %}
 {
   "name": "Settings Banner Embed",
   "target": "body",
-  "settings": []
+  "settings": [
+    {
+      "type": "text",
+      "id": "banner_id",
+      "label": "Banner ID",
+      "info": "Nhập ID banner muốn hiển thị trên storefront."
+    }
+  ]
 }
 {% endschema %}

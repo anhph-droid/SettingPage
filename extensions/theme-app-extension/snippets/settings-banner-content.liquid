@@ -1,5 +1,8 @@
 {% liquid
   assign settings_banner_root_id = root_id | default: 'settings-banner-root'
+  assign settings_banner_selected_id = banner_id | default: blank
+  assign settings_banner_render_mode = render_mode | default: 'embed'
+  assign settings_banner_forced_size = force_size | default: blank
 %}
 
 <div id="{{ settings_banner_root_id }}" {% if include_block_attributes %}{{ block.shopify_attributes }}{% endif %}></div>
@@ -11,19 +14,44 @@
   }
 
   #{{ settings_banner_root_id }} {
+    --settings-banner-panel: #1f2027;
+    --settings-banner-panel-soft: #2a2c35;
+    --settings-banner-text: #f8fafc;
+    --settings-banner-muted: rgba(248, 250, 252, 0.72);
+    --settings-banner-shadow: 0 16px 36px rgba(17, 24, 39, 0.18);
+  }
+
+  #{{ settings_banner_root_id }}[data-render-mode="embed"] {
     position: fixed;
     inset: 0;
     z-index: 999999;
     pointer-events: none;
   }
 
+  #{{ settings_banner_root_id }}[data-render-mode="section"] {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    pointer-events: auto;
+  }
+
   .settings-banner-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  #{{ settings_banner_root_id }}[data-render-mode="embed"] .settings-banner-stack {
     position: fixed;
     left: 0;
     right: 0;
-    display: flex;
-    flex-direction: column;
     pointer-events: none;
+  }
+
+  #{{ settings_banner_root_id }}[data-render-mode="section"] .settings-banner-stack {
+    position: relative;
+    width: 100%;
+    pointer-events: auto;
   }
 
   .settings-banner-stack--top {
@@ -38,9 +66,10 @@
     width: 100%;
     position: relative;
     pointer-events: auto;
-    background: #f7f5f3;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    background: var(--settings-banner-panel);
+    border: 1px solid rgba(91, 142, 247, 0.28);
+    box-shadow: var(--settings-banner-shadow);
+    overflow: hidden;
   }
 
   .settings-banner--small,
@@ -48,8 +77,7 @@
     width: auto;
     max-width: min(92vw, 560px);
     margin: 12px auto 0;
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    border-radius: 18px;
+    border-radius: 20px;
   }
 
   .settings-banner--small {
@@ -57,7 +85,68 @@
   }
 
   .settings-banner--large {
-    background-image: linear-gradient(135deg, rgba(17, 24, 39, 0.2), rgba(0, 0, 0, 0.04));
+    background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+  }
+
+  .settings-banner--inline {
+    width: min(100%, 292px);
+    min-height: 116px;
+    border-radius: 16px;
+    box-shadow: 0 12px 30px rgba(17, 24, 39, 0.14);
+  }
+
+  .settings-banner--large {
+    width: 100%;
+    min-height: 208px;
+    border-radius: 18px;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)),
+      linear-gradient(135deg, #686770, #55545d);
+  }
+
+  .settings-banner--large::before,
+  .settings-banner--large::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    width: 34%;
+    height: 58%;
+    background: rgba(255, 255, 255, 0.12);
+    pointer-events: none;
+  }
+
+  .settings-banner--large::before {
+    left: 0;
+    clip-path: polygon(0 100%, 0 38%, 56% 0, 100% 40%, 100% 100%);
+  }
+
+  .settings-banner--large::after {
+    right: 0;
+    clip-path: polygon(0 48%, 42% 0, 100% 100%, 0 100%);
+  }
+
+  #{{ settings_banner_root_id }}[data-render-mode="section"] .settings-banner--bar,
+  #{{ settings_banner_root_id }}[data-render-mode="section"] .settings-banner--large {
+    margin: 0;
+    max-width: 100%;
+  }
+
+  #{{ settings_banner_root_id }}[data-render-mode="section"] .settings-banner--small,
+  #{{ settings_banner_root_id }}[data-render-mode="section"] .settings-banner--inline {
+    margin: 0;
+  }
+
+  #{{ settings_banner_root_id }}[data-render-mode="section"] .settings-banner--small {
+    width: min(100%, 320px);
+  }
+
+  #{{ settings_banner_root_id }}[data-render-mode="section"] .settings-banner--inline {
+    width: min(100%, 292px);
+    min-height: 116px;
+  }
+
+  #{{ settings_banner_root_id }}[data-render-mode="section"] .settings-banner--large {
+    min-height: 208px;
   }
 
   .settings-banner__scroll {
@@ -69,58 +158,83 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 6px 44px 6px 16px;
+    padding: 12px 44px 12px 16px;
   }
 
   .settings-banner--small .settings-banner__layout {
-    min-height: 72px;
-    padding: 14px 44px 14px 16px;
+    min-height: 104px;
+    padding: 20px 48px 20px 18px;
   }
 
   .settings-banner--inline .settings-banner__layout {
-    min-height: 86px;
-    padding: 18px 48px 18px 20px;
+    min-height: 116px;
+    padding: 16px 18px;
   }
 
   .settings-banner--large .settings-banner__layout {
-    min-height: 120px;
-    padding: 26px 52px 26px 24px;
+    min-height: 208px;
+    padding: 28px 24px;
   }
 
   .settings-banner__content {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 14px;
-    flex-wrap: wrap;
+    gap: 12px;
+    width: 100%;
     text-align: center;
   }
 
-  .settings-banner--small .settings-banner__content {
-    gap: 10px;
+  .settings-banner--bar .settings-banner__content {
+    flex-direction: row;
+    gap: 14px;
+    flex-wrap: wrap;
   }
 
   .settings-banner--large .settings-banner__content {
-    gap: 18px;
+    gap: 14px;
+    position: relative;
+    z-index: 1;
+    width: min(100%, 300px);
+    margin: 0 auto;
+    padding: 18px 20px;
+    border-radius: 10px;
+    background: rgba(24, 24, 27, 0.88);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+  }
+
+  .settings-banner__eyebrow {
+    margin: 0;
+    font-size: 11px;
+    line-height: 1;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--settings-banner-muted);
   }
 
   .settings-banner__title {
     margin: 0;
-    font-size: 14px;
+    font-size: 16px;
     line-height: 1.1;
     font-weight: 700;
+    color: var(--settings-banner-text);
   }
 
   .settings-banner--small .settings-banner__title {
-    font-size: 16px;
-  }
-
-  .settings-banner--inline .settings-banner__title {
     font-size: 18px;
   }
 
+  .settings-banner--inline .settings-banner__title {
+    font-size: 14px;
+  }
+
   .settings-banner--large .settings-banner__title {
-    font-size: 24px;
+    font-size: 18px;
+  }
+
+  .settings-banner--bar .settings-banner__title {
+    font-size: 14px;
   }
 
   .settings-banner__link {
@@ -130,9 +244,10 @@
 
   .settings-banner__text {
     margin: 0;
-    font-size: 12px;
-    line-height: 1.2;
-    color: rgba(0, 0, 0, 0.8);
+    max-width: 42ch;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--settings-banner-muted);
   }
 
   .settings-banner--small .settings-banner__text {
@@ -140,73 +255,112 @@
   }
 
   .settings-banner--inline .settings-banner__text {
-    font-size: 13px;
+    font-size: 11px;
+    line-height: 1.35;
+    max-width: 24ch;
   }
 
   .settings-banner--large .settings-banner__text {
-    font-size: 15px;
+    font-size: 12px;
+    line-height: 1.4;
+    max-width: 26ch;
   }
 
   .settings-banner__countdown {
     display: flex;
     align-items: center;
-    gap: 10px;
+    justify-content: center;
+    gap: 8px;
     font-weight: 700;
+    flex-wrap: wrap;
+  }
+
+  .settings-banner__countdown-rail {
+    width: 18px;
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.92);
   }
 
   .settings-banner__countdown-part {
     display: flex;
-    align-items: baseline;
-    gap: 4px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    gap: 2px;
   }
 
   .settings-banner__countdown-value {
-    min-width: 18px;
-    font-size: 13px;
+    display: inline-flex;
+    width: 22px;
+    height: 22px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.98);
+    color: #111827;
+    font-size: 11px;
     line-height: 1;
   }
 
   .settings-banner--small .settings-banner__countdown-value {
-    font-size: 14px;
+    font-size: 12px;
   }
 
   .settings-banner--inline .settings-banner__countdown-value {
-    font-size: 15px;
+    font-size: 12px;
   }
 
   .settings-banner--large .settings-banner__countdown-value {
-    font-size: 20px;
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+
+  .settings-banner--inline .settings-banner__countdown-label,
+  .settings-banner--large .settings-banner__countdown-label {
+    display: none;
+  }
+
+  .settings-banner--large .settings-banner__eyebrow {
+    font-size: 9px;
+    letter-spacing: 0.24em;
+  }
+
+  .settings-banner--inline .settings-banner__eyebrow {
+    font-size: 9px;
+    letter-spacing: 0.16em;
   }
 
   .settings-banner__countdown-label {
-    font-size: 9px;
+    font-size: 8px;
     line-height: 1;
     text-transform: lowercase;
-    color: rgba(0, 0, 0, 0.6);
+    color: var(--settings-banner-muted);
   }
 
   .settings-banner__close {
     position: absolute;
-    top: 50%;
-    right: 12px;
-    transform: translateY(-50%);
+    top: 14px;
+    right: 14px;
     border: 0;
     background: transparent;
-    color: rgba(0, 0, 0, 0.35);
-    font-size: 28px;
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 24px;
     line-height: 1;
     cursor: pointer;
     padding: 0;
   }
 
   .settings-banner__close:hover {
-    color: rgba(0, 0, 0, 0.65);
+    color: rgba(255, 255, 255, 0.78);
   }
 
   @media (max-width: 768px) {
     .settings-banner__layout {
       min-height: 56px;
-      padding: 8px 40px 8px 12px;
+      padding: 12px 40px 12px 12px;
     }
 
     .settings-banner--small,
@@ -216,8 +370,8 @@
     }
 
     .settings-banner--large .settings-banner__layout {
-      min-height: 96px;
-      padding: 20px 44px 20px 16px;
+      min-height: 176px;
+      padding: 20px 16px;
     }
 
     .settings-banner__content {
@@ -230,21 +384,25 @@
       flex-wrap: wrap;
       justify-content: center;
     }
+
+    #{{ settings_banner_root_id }}[data-render-mode="section"] .settings-banner--small,
+    #{{ settings_banner_root_id }}[data-render-mode="section"] .settings-banner--inline {
+      width: 100%;
+    }
   }
 </style>
 
 <script>
   (function () {
     const root = document.getElementById({{ settings_banner_root_id | json }});
+    const selectedBannerId = {{ settings_banner_selected_id | json }};
+    const renderMode = {{ settings_banner_render_mode | json }};
+    const forcedBannerSize = {{ settings_banner_forced_size | json }};
     if (!root) return;
-    if (window.__settingsBannerMounted === true) {
-      root.remove();
-      return;
-    }
     if (root.dataset.settingsBannerMounted === "true") return;
 
-    window.__settingsBannerMounted = true;
     root.dataset.settingsBannerMounted = "true";
+    root.dataset.renderMode = renderMode;
 
     const dismissedKey = "settings-banner-dismissed";
     const currentProductId = {{ product.id | json }};
@@ -294,17 +452,32 @@
 
     function normalizeProductId(value) {
       if (value === null || value === undefined || value === "") return "";
-      return String(value).split("/").pop();
+      return String(value).trim().split("/").pop();
+    }
+
+    function normalizeProductIds(value) {
+      if (!value) return [];
+
+      return String(value)
+        .split(",")
+        .map(function (entry) {
+          return normalizeProductId(entry);
+        })
+        .filter(Boolean);
     }
 
     function matchesTargetProduct(targetProductId, pathname) {
       if (!targetProductId) return true;
       if (pageTypeFromPath(pathname) !== "product") return false;
 
-      return normalizeProductId(targetProductId) === normalizeProductId(currentProductId);
+      const targetProductIds = normalizeProductIds(targetProductId);
+      if (!targetProductIds.length) return true;
+
+      return targetProductIds.includes(normalizeProductId(currentProductId));
     }
 
     function setBodyOffset() {
+      if (renderMode !== "embed") return;
       const topStack = root.querySelector(".settings-banner-stack--top");
       const height = topStack ? topStack.offsetHeight : 0;
       document.body.style.setProperty("--settings-banner-offset", height + "px");
@@ -312,6 +485,7 @@
     }
 
     function clearBodyOffset() {
+      if (renderMode !== "embed") return;
       document.body.classList.remove("settings-banner-visible");
       document.body.style.removeProperty("--settings-banner-offset");
     }
@@ -332,11 +506,17 @@
       if (!parts) return "";
 
       return [
+        ['rail', ''],
         ["days", parts.days],
         ["hours", parts.hours],
         ["mins", parts.mins],
         ["secs", parts.secs],
+        ['rail', ''],
       ].map(function (entry) {
+        if (entry[0] === 'rail') {
+          return '<span class="settings-banner__countdown-rail" aria-hidden="true"></span>';
+        }
+
         return (
           '<span class="settings-banner__countdown-part">' +
           '<span class="settings-banner__countdown-value">' + entry[1] + "</span>" +
@@ -348,10 +528,21 @@
 
     function createBannerNode(banner) {
       const wrapper = document.createElement("div");
-      const bannerSize = banner.size === "medium" ? "bar" : (banner.size || "bar");
+      const storedBannerSize = banner.size === "medium" ? "bar" : (banner.size || "bar");
+      if (forcedBannerSize && forcedBannerSize !== storedBannerSize) {
+        return null;
+      }
+
+      const bannerSize = storedBannerSize;
       wrapper.className = "settings-banner settings-banner--" + bannerSize;
       wrapper.style.background = banner.backgroundColor || "#f3f0ff";
       wrapper.style.color = banner.color || "#000000";
+      wrapper.style.borderColor = banner.borderColor || "rgba(0, 0, 0, 0.08)";
+      wrapper.style.borderWidth = banner.borderStyle === "none"
+        ? "0"
+        : ((banner.borderWidth && banner.borderWidth !== "0" ? banner.borderWidth : "1") + "px");
+      wrapper.style.borderStyle = banner.borderStyle || "solid";
+      wrapper.style.borderRadius = (banner.borderRadius || "0") + "px";
 
       const safeTitle = banner.title || "";
       const safeContent = banner.content || "";
@@ -367,7 +558,8 @@
       wrapper.innerHTML =
         '<div class="settings-banner__layout">' +
         '<div class="settings-banner__content">' +
-        '<h2 class="settings-banner__title">' + titleMarkup + "</h2>" +
+        (safeTitle ? '<p class="settings-banner__eyebrow">Sale Ends In</p>' : "") +
+        (safeTitle ? '<h2 class="settings-banner__title">' + titleMarkup + "</h2>" : "") +
         (banner.timeEnd
           ? '<div class="settings-banner__countdown" data-countdown>' + formatCountdownMarkup(initialCountdownParts) + "</div>"
           : '<p class="settings-banner__text">' + safeContent + "</p>") +
@@ -418,6 +610,22 @@
     }
 
     function renderBanners(banners) {
+      if (renderMode === "section") {
+        const stack = document.createElement("div");
+        stack.className = "settings-banner-stack settings-banner-stack--section";
+
+        banners.forEach(function (banner) {
+          const bannerNode = createBannerNode(banner);
+          if (bannerNode) {
+            stack.appendChild(bannerNode);
+          }
+        });
+
+        root.replaceChildren(stack);
+        setBodyOffset();
+        return;
+      }
+
       const topStack = document.createElement("div");
       topStack.className = "settings-banner-stack settings-banner-stack--top";
 
@@ -441,7 +649,12 @@
 
     async function loadBanner() {
       try {
-        const response = await fetch("/apps/settings/banner-data", {
+        const requestUrl = new URL("/apps/settings/banner-data", window.location.origin);
+        if (selectedBannerId) {
+          requestUrl.searchParams.set("bannerId", selectedBannerId);
+        }
+
+        const response = await fetch(requestUrl.toString(), {
           credentials: "same-origin",
           headers: {
             Accept: "application/json",
@@ -455,8 +668,10 @@
         const dismissedBannerId = sessionStorage.getItem(dismissedKey);
 
         const matchedBanners = (data.banners || []).filter(function (banner) {
-          if (!matchesTargetPage(banner.targetPage, pathname)) return false;
-          if (!matchesTargetProduct(banner.targetProductId, pathname)) return false;
+          if (!selectedBannerId) {
+            if (!matchesTargetPage(banner.targetPage, pathname)) return false;
+            if (!matchesTargetProduct(banner.targetProductId, pathname)) return false;
+          }
           if (dismissedBannerId && String(banner.id) === dismissedBannerId) return false;
           return true;
         });
@@ -474,7 +689,9 @@
       }
     }
 
-    window.addEventListener("resize", setBodyOffset);
+    if (renderMode === "embed") {
+      window.addEventListener("resize", setBodyOffset);
+    }
     loadBanner();
   })();
 </script>
