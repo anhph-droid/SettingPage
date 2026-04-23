@@ -13,6 +13,17 @@
     const dismissedKey = "settings-banner-dismissed";
     const currentProductId = {{ current_product_id | json }};
 
+    function normalizeBannerSize(value) {
+      if (value === "medium" || !value) return "bar";
+      return String(value).trim().toLowerCase();
+    }
+
+    function getExpectedBannerSize() {
+      if (forcedBannerSize) return normalizeBannerSize(forcedBannerSize);
+      if (renderMode === "embed") return "bar";
+      return null;
+    }
+
     function normalizePath(value) {
       if (!value) return "/";
 
@@ -80,6 +91,12 @@
       if (!targetProductIds.length) return true;
 
       return targetProductIds.includes(normalizeProductId(currentProductId));
+    }
+
+    function matchesExpectedBannerSize(banner) {
+      const expectedBannerSize = getExpectedBannerSize();
+      if (!expectedBannerSize) return true;
+      return normalizeBannerSize(banner && banner.size) === expectedBannerSize;
     }
 
     function parseHexColor(value) {
@@ -163,8 +180,8 @@
 
     function createBannerNode(banner) {
       const wrapper = document.createElement("div");
-      const storedBannerSize = banner.size === "medium" ? "bar" : (banner.size || "bar");
-      if (forcedBannerSize && forcedBannerSize !== storedBannerSize) {
+      const storedBannerSize = normalizeBannerSize(banner.size);
+      if (!matchesExpectedBannerSize(banner)) {
         return null;
       }
 
@@ -310,6 +327,7 @@
             if (!matchesTargetPage(banner.targetPage, pathname)) return false;
             if (!matchesTargetProduct(banner.targetProductId, pathname)) return false;
           }
+          if (!matchesExpectedBannerSize(banner)) return false;
           if (dismissedBannerId && String(banner.id) === dismissedBannerId) return false;
           return true;
         });
