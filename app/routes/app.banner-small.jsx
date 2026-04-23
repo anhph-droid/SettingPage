@@ -319,7 +319,7 @@ export default function SettingPage() {
                               >
                                 Remove
                               </Button>
-                            </InlineStack>
+                            </InlineStack>     
                           ))}
                         </div>
                       )}

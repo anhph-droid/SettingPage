@@ -1,0 +1,335 @@
+<script>
+  (function () {
+    const root = document.getElementById({{ root_id | json }});
+    const selectedBannerId = {{ banner_id | json }};
+    const renderMode = {{ render_mode | json }};
+    const forcedBannerSize = {{ force_size | json }};
+    if (!root) return;
+    if (root.dataset.settingsBannerMounted === "true") return;
+
+    root.dataset.settingsBannerMounted = "true";
+    root.dataset.renderMode = renderMode;
+
+    const dismissedKey = "settings-banner-dismissed";
+    const currentProductId = {{ current_product_id | json }};
+
+    function normalizePath(value) {
+      if (!value) return "/";
+
+      try {
+        if (value.startsWith("http://") || value.startsWith("https://")) {
+          return new URL(value).pathname || "/";
+        }
+      } catch (error) {
+        return value.split("?")[0] || "/";
+      }
+
+      const normalized = value.split("?")[0] || "/";
+      return normalized.startsWith("/") ? normalized : "/" + normalized;
+    }
+
+    function pageTypeFromPath(pathname) {
+      if (pathname === "/") return "home";
+      if (pathname === "/cart") return "cart";
+      if (pathname === "/search") return "search";
+      if (pathname.startsWith("/products/")) return "product";
+      if (pathname.startsWith("/collections/")) return "collection";
+      if (pathname.startsWith("/blogs/")) {
+        const segments = pathname.split("/").filter(Boolean);
+        return segments.length > 2 ? "article" : "blog";
+      }
+      if (pathname.startsWith("/pages/")) return "page";
+      return "custom";
+    }
+
+    function matchesTargetPage(targetPage, pathname) {
+      if (!targetPage || targetPage === "all") return true;
+
+      const currentPageType = pageTypeFromPath(pathname);
+      if (targetPage === currentPageType) return true;
+
+      if (targetPage.startsWith("custom:")) {
+        const customTarget = normalizePath(targetPage.slice("custom:".length).trim());
+        return pathname === customTarget;
+      }
+
+      return false;
+    }
+
+    function normalizeProductId(value) {
+      if (value === null || value === undefined || value === "") return "";
+      return String(value).trim().split("/").pop();
+    }
+
+    function normalizeProductIds(value) {
+      if (!value) return [];
+
+      return String(value)
+        .split(",")
+        .map(function (entry) {
+          return normalizeProductId(entry);
+        })
+        .filter(Boolean);
+    }
+
+    function matchesTargetProduct(targetProductId, pathname) {
+      if (!targetProductId) return true;
+      if (pageTypeFromPath(pathname) !== "product") return false;
+
+      const targetProductIds = normalizeProductIds(targetProductId);
+      if (!targetProductIds.length) return true;
+
+      return targetProductIds.includes(normalizeProductId(currentProductId));
+    }
+
+    function parseHexColor(value) {
+      if (!value || typeof value !== "string") return null;
+      const normalized = value.trim().replace("#", "");
+
+      if (normalized.length === 3) {
+        return {
+          r: parseInt(normalized[0] + normalized[0], 16),
+          g: parseInt(normalized[1] + normalized[1], 16),
+          b: parseInt(normalized[2] + normalized[2], 16),
+        };
+      }
+
+      if (normalized.length === 6) {
+        return {
+          r: parseInt(normalized.slice(0, 2), 16),
+          g: parseInt(normalized.slice(2, 4), 16),
+          b: parseInt(normalized.slice(4, 6), 16),
+        };
+      }
+
+      return null;
+    }
+
+    function toMutedColor(value) {
+      const hexColor = parseHexColor(value);
+      if (!hexColor) return value || "#000000";
+      return "rgba(" + hexColor.r + ", " + hexColor.g + ", " + hexColor.b + ", 0.72)";
+    }
+
+    function setBodyOffset() {
+      if (renderMode !== "embed") return;
+      const topStack = root.querySelector(".settings-banner-stack--top");
+      const height = topStack ? topStack.offsetHeight : 0;
+      document.body.style.setProperty("--settings-banner-offset", height + "px");
+      document.body.classList.toggle("settings-banner-visible", height > 0);
+    }
+
+    function clearBodyOffset() {
+      if (renderMode !== "embed") return;
+      document.body.classList.remove("settings-banner-visible");
+      document.body.style.removeProperty("--settings-banner-offset");
+    }
+
+    function getCountdownParts(endTime) {
+      const distance = endTime - Date.now();
+      if (distance <= 0) return null;
+
+      return {
+        days: String(Math.floor(distance / 86400000)).padStart(2, "0"),
+        hours: String(Math.floor((distance % 86400000) / 3600000)).padStart(2, "0"),
+        mins: String(Math.floor((distance % 3600000) / 60000)).padStart(2, "0"),
+        secs: String(Math.floor((distance % 60000) / 1000)).padStart(2, "0"),
+      };
+    }
+
+    function formatCountdownMarkup(parts) {
+      if (!parts) return "";
+
+      return [
+        ["rail", ""],
+        ["days", parts.days],
+        ["hours", parts.hours],
+        ["mins", parts.mins],
+        ["secs", parts.secs],
+        ["rail", ""],
+      ].map(function (entry) {
+        if (entry[0] === "rail") {
+          return '<span class="settings-banner__countdown-rail" aria-hidden="true"></span>';
+        }
+
+        return (
+          '<span class="settings-banner__countdown-part">' +
+          '<span class="settings-banner__countdown-value">' + entry[1] + "</span>" +
+          '<span class="settings-banner__countdown-label">' + entry[0] + "</span>" +
+          "</span>"
+        );
+      }).join("");
+    }
+
+    function createBannerNode(banner) {
+      const wrapper = document.createElement("div");
+      const storedBannerSize = banner.size === "medium" ? "bar" : (banner.size || "bar");
+      if (forcedBannerSize && forcedBannerSize !== storedBannerSize) {
+        return null;
+      }
+
+      const bannerSize = storedBannerSize;
+      const resolvedTextColor = banner.color || "#000000";
+      wrapper.className = "settings-banner settings-banner--" + bannerSize;
+      wrapper.style.background = banner.backgroundColor || "#f3f0ff";
+      wrapper.style.color = resolvedTextColor;
+      wrapper.style.borderColor = banner.borderColor || "rgba(0, 0, 0, 0.08)";
+      wrapper.style.borderWidth = banner.borderStyle === "none"
+        ? "0"
+        : ((banner.borderWidth && banner.borderWidth !== "0" ? banner.borderWidth : "1") + "px");
+      wrapper.style.borderStyle = banner.borderStyle || "solid";
+      wrapper.style.borderRadius = (banner.borderRadius || "0") + "px";
+      wrapper.style.setProperty("--settings-banner-text", resolvedTextColor);
+      wrapper.style.setProperty("--settings-banner-muted", toMutedColor(resolvedTextColor));
+
+      const safeTitle = banner.title || "";
+      const safeContent = banner.content || "";
+      const titleMarkup = banner.link
+        ? '<a class="settings-banner__link" href="' + banner.link + '">' + safeTitle + "</a>"
+        : safeTitle;
+      const initialCountdownParts = banner.timeEnd
+        ? getCountdownParts(new Date(banner.timeEnd).getTime())
+        : null;
+
+      if (banner.timeEnd && !initialCountdownParts) return null;
+
+      wrapper.innerHTML =
+        '<div class="settings-banner__layout">' +
+        '<div class="settings-banner__content">' +
+        (safeTitle ? '<p class="settings-banner__eyebrow">Sale Ends In</p>' : "") +
+        (safeTitle ? '<h2 class="settings-banner__title">' + titleMarkup + "</h2>" : "") +
+        (banner.timeEnd
+          ? '<div class="settings-banner__countdown" data-countdown>' + formatCountdownMarkup(initialCountdownParts) + "</div>"
+          : '<p class="settings-banner__text">' + safeContent + "</p>") +
+        (banner.timeEnd && safeContent ? '<p class="settings-banner__text">' + safeContent + "</p>" : "") +
+        "</div>" +
+        "</div>";
+
+      if (banner.dismissible) {
+        const closeButton = document.createElement("button");
+        closeButton.type = "button";
+        closeButton.className = "settings-banner__close";
+        closeButton.setAttribute("aria-label", "Close banner");
+        closeButton.innerHTML = "&times;";
+        closeButton.addEventListener("click", function () {
+          sessionStorage.setItem(dismissedKey, String(banner.id));
+          wrapper.remove();
+          setBodyOffset();
+        });
+        wrapper.appendChild(closeButton);
+      }
+
+      const countdownNode = wrapper.querySelector("[data-countdown]");
+      if (countdownNode && banner.timeEnd) {
+        const endTime = new Date(banner.timeEnd).getTime();
+        if (!Number.isNaN(endTime)) {
+          const updateCountdown = function () {
+            const parts = getCountdownParts(endTime);
+
+            if (!parts) {
+              wrapper.remove();
+              if (!root.querySelector(".settings-banner")) {
+                clearBodyOffset();
+              } else {
+                setBodyOffset();
+              }
+              return;
+            }
+
+            countdownNode.innerHTML = formatCountdownMarkup(parts);
+          };
+
+          updateCountdown();
+          window.setInterval(updateCountdown, 1000);
+        }
+      }
+
+      return wrapper;
+    }
+
+    function renderBanners(banners) {
+      if (renderMode === "section") {
+        const stack = document.createElement("div");
+        stack.className = "settings-banner-stack settings-banner-stack--section";
+
+        banners.forEach(function (banner) {
+          const bannerNode = createBannerNode(banner);
+          if (bannerNode) {
+            stack.appendChild(bannerNode);
+          }
+        });
+
+        root.replaceChildren(stack);
+        setBodyOffset();
+        return;
+      }
+
+      const topStack = document.createElement("div");
+      topStack.className = "settings-banner-stack settings-banner-stack--top";
+
+      const bottomStack = document.createElement("div");
+      bottomStack.className = "settings-banner-stack settings-banner-stack--bottom";
+
+      banners.forEach(function (banner) {
+        const bannerNode = createBannerNode(banner);
+        if (!bannerNode) return;
+
+        if (banner.position === "bottom") {
+          bottomStack.appendChild(bannerNode);
+        } else {
+          topStack.appendChild(bannerNode);
+        }
+      });
+
+      root.replaceChildren(topStack, bottomStack);
+      setBodyOffset();
+    }
+
+    async function loadBanner() {
+      try {
+        const requestUrl = new URL("/apps/settings/banner-data", window.location.origin);
+        if (selectedBannerId) {
+          requestUrl.searchParams.set("bannerId", selectedBannerId);
+        }
+
+        const response = await fetch(requestUrl.toString(), {
+          credentials: "same-origin",
+          headers: {
+            Accept: "application/json",
+          },
+        });
+
+        if (!response.ok) return;
+
+        const data = await response.json();
+        const pathname = normalizePath(window.location.pathname);
+        const dismissedBannerId = sessionStorage.getItem(dismissedKey);
+
+        const matchedBanners = (data.banners || []).filter(function (banner) {
+          if (!selectedBannerId) {
+            if (!matchesTargetPage(banner.targetPage, pathname)) return false;
+            if (!matchesTargetProduct(banner.targetProductId, pathname)) return false;
+          }
+          if (dismissedBannerId && String(banner.id) === dismissedBannerId) return false;
+          return true;
+        });
+
+        if (!matchedBanners.length) {
+          root.replaceChildren();
+          clearBodyOffset();
+          return;
+        }
+
+        renderBanners(matchedBanners);
+      } catch (error) {
+        console.error("Failed to load banner", error);
+        clearBodyOffset();
+      }
+    }
+
+    if (renderMode === "embed") {
+      window.addEventListener("resize", setBodyOffset);
+    }
+    loadBanner();
+  })();
+</script>
