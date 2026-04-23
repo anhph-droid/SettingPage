@@ -16,20 +16,10 @@ import { MenuHorizontalIcon } from "@shopify/polaris-icons";
 import { useCallback, useState } from "react";
 import { useFetcher, useLoaderData, useNavigate } from "react-router";
 
+import { getBannerStatusMeta, isBannerExpired } from "../lib/bannerStatus";
+import { syncExpiredBannersForShop } from "../lib/bannerStatus.server";
 import prisma from "../db.server";
 import { authenticate } from "../shopify.server";
-
-function getBannerStatus(banner) {
-  const isTimeEnded = banner.timeEnd && new Date(banner.timeEnd).getTime() <= Date.now();
-
-  if (isTimeEnded) {
-    return { tone: "attention", label: "Expired" };
-  }
-
-  return banner.status
-    ? { tone: "success", label: "Enabled" }
-    : { tone: "critical", label: "Disabled" };
-}
 
 export const action = async ({ request }) => {
   const { session } = await authenticate.admin(request);
@@ -62,6 +52,7 @@ export const action = async ({ request }) => {
         ...banner,
         id: undefined,
         title: `${banner.title} (Copy)`,
+        status: isBannerExpired(banner.timeEnd) ? false : banner.status,
         createdAt: undefined,
         updatedAt: undefined,
       },
@@ -79,6 +70,13 @@ export const action = async ({ request }) => {
     });
 
     if (!banner) return { ok: false };
+    if (isBannerExpired(banner.timeEnd)) {
+      await prisma.app_banner.update({
+        where: { id },
+        data: { status: false },
+      });
+      return { ok: false, ended: true };
+    }
 
     await prisma.app_banner.update({
       where: { id },
@@ -93,6 +91,7 @@ export const action = async ({ request }) => {
 
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
+  await syncExpiredBannersForShop(session.shop);
 
   const barBanners = await prisma.app_banner.findMany({
     where: {
@@ -107,7 +106,7 @@ export const loader = async ({ request }) => {
     shop: session.shop,
     barBanners,
     totals: {
-      enabled: barBanners.filter((banner) => getBannerStatus(banner).label === "Enabled").length,
+      enabled: barBanners.filter((banner) => getBannerStatusMeta(banner).label === "Enabled").length,
       total: barBanners.length,
     },
   };
@@ -164,6 +163,8 @@ function RowActionMenu({ banner, fetcher, navigate }) {
 
 function StatusToggle({ banner }) {
   const fetcher = useFetcher();
+  const statusMeta = getBannerStatusMeta(banner);
+  const isEnded = statusMeta.label === "End time";
   const checked =
     fetcher.formData?.get("intent") === "toggle_status"
       ? fetcher.formData.get("nextStatus") === "true"
@@ -182,24 +183,26 @@ function StatusToggle({ banner }) {
         style={{
           fontSize: "12px",
           fontWeight: 600,
-          color: checked ? "#0f8a5f" : "#6b7280",
+          color: isEnded ? "#8a6116" : checked ? "#0f8a5f" : "#6b7280",
           minWidth: "54px",
           textAlign: "right",
         }}
       >
-        {checked ? "Enabled" : "Disabled"}
+        {isEnded ? "End time" : checked ? "Enabled" : "Disabled"}
       </span>
       <button
         type="submit"
-        aria-label={checked ? "Disable banner" : "Enable banner"}
+        aria-label={isEnded ? "Banner expired" : checked ? "Disable banner" : "Enable banner"}
+        disabled={isEnded}
         style={{
           width: "28px",
           height: "16px",
           borderRadius: "999px",
           border: 0,
           padding: "2px",
-          background: checked ? "#2f855a" : "#111827",
-          cursor: "pointer",
+          background: isEnded ? "#c2a46a" : checked ? "#2f855a" : "#111827",
+          cursor: isEnded ? "not-allowed" : "pointer",
+          opacity: isEnded ? 0.75 : 1,
         }}
       >
         <span

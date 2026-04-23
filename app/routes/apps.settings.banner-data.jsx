@@ -1,4 +1,5 @@
 import prisma from "../db.server";
+import { syncExpiredBannersForShop } from "../lib/bannerStatus.server";
 import { authenticate } from "../shopify.server";
 
 export const loader = async ({ request }) => {
@@ -17,6 +18,8 @@ export const loader = async ({ request }) => {
       },
     });
   }
+
+  await syncExpiredBannersForShop(shop, now);
 
   const banners = await prisma.app_banner.findMany({
     where: {

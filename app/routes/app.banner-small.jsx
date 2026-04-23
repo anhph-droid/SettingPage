@@ -2,6 +2,13 @@ import { useNavigate, useFetcher, useLoaderData } from "react-router";
 
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
+import {
+  formatDateTimeForInput,
+  formatDateTimeForShopify,
+  getPersistedBannerStatus,
+  hasTimeEndChanged,
+} from "../lib/bannerStatus";
+import { syncExpiredBannersForShop } from "../lib/bannerStatus.server";
 import { getBannerPreset, getBannerPreviewStyle, getBannerSize } from "../lib/bannerPresets";
 
 import {
@@ -100,7 +107,8 @@ function getTargetPageState(targetPageValue) {
 }
 
 export const loader = async ({ request }) => {
-  await authenticate.admin(request);
+  const { session } = await authenticate.admin(request);
+  await syncExpiredBannersForShop(session.shop);
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
   const preset = url.searchParams.get("preset");
@@ -134,6 +142,7 @@ export const action = async ({ request }) => {
     formData.get("customTargetPage")?.toString() || "",
   );
   const timeEndStr = formData.get("timeEnd")?.toString().trim();
+  const timeEnd = timeEndStr ? new Date(timeEndStr) : null;
  
   const targetProductIdRaw = formData.get("targetProductId")?.toString().trim() || "";
   const targetProductId = targetProductIdRaw || null;
@@ -149,6 +158,11 @@ export const action = async ({ request }) => {
         : "all"
       : targetPage;
 
+  const existingBanner = id
+    ? await prisma.app_banner.findUnique({ where: { id: Number(id) } })
+    : null;
+  const shouldEnableFromDateChange = hasTimeEndChanged(existingBanner?.timeEnd, timeEnd);
+
   const data = {
     shop: session.shop,
     title,
@@ -159,7 +173,7 @@ export const action = async ({ request }) => {
     size,
     position,
     priority,
-    status,
+    status: getPersistedBannerStatus(shouldEnableFromDateChange ? true : status, timeEnd),
     dismissible,
     borderColor,
     borderWidth,
@@ -167,7 +181,7 @@ export const action = async ({ request }) => {
     borderRadius,
     targetProductId, 
     targetPage: normalizedTargetPage,
-    timeEnd: timeEndStr ? new Date(timeEndStr) : null,
+    timeEnd,
   };
 
   if (id) {
@@ -214,7 +228,7 @@ export default function SettingPage() {
   );
   const [timeEnd, setTimeEnd] = useState(
     initialSettings?.timeEnd
-      ? new Date(initialSettings.timeEnd).toISOString().slice(0, 16)
+      ? formatDateTimeForInput(initialSettings.timeEnd)
       : "",
   );
   const [now, setNow] = useState(Date.now());
@@ -229,6 +243,11 @@ export default function SettingPage() {
     ? initialSettings.targetProductId.split(",").map((id) => ({ id, title: id }))
     : [],
   );
+
+  const handleTimeEndChange = (value) => {
+    setTimeEnd(value);
+    setStatus(true);
+  };
 
   const isSaving = fetcher.state === "submitting";
 
@@ -262,6 +281,7 @@ export default function SettingPage() {
 
   const remainingTime = getRemainingTimeParts(timeEnd, now);
   const showCountdown = remainingTime && !remainingTime.expired;
+  const formattedTimeEnd = formatDateTimeForShopify(timeEnd);
   const previewStyle = getBannerPreviewStyle(size);
 
   return (
@@ -509,7 +529,8 @@ export default function SettingPage() {
                     type="datetime-local"
                     name="timeEnd"
                     value={timeEnd}
-                    onChange={setTimeEnd}
+                    onChange={handleTimeEndChange}
+                    helpText={formattedTimeEnd ? `Shopify format: ${formattedTimeEnd}` : "Pick a date and time"}
                   />
                 </FormLayout.Group>
               </FormLayout>
