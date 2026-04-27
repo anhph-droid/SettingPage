@@ -1,0 +1,197 @@
+  body.settings-banner-visible {
+    padding-top: var(--settings-banner-offset, 0px) !important;
+    transition: padding-top 0.2s ease;
+  }
+
+  #{{ root_id }} {
+    --settings-banner-panel: #1f2027;
+    --settings-banner-panel-soft: #2a2c35;
+    --settings-banner-text: #f8fafc;
+    --settings-banner-muted: rgba(248, 250, 252, 0.72);
+    --settings-banner-shadow: 0 16px 36px rgba(17, 24, 39, 0.18);
+  }
+
+  #{{ root_id }}[data-render-mode="embed"] {
+    position: fixed;
+    inset: 0;
+    z-index: 999999;
+    pointer-events: none;
+  }
+
+  #{{ root_id }}[data-render-mode="section"] {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    overflow: visible;
+    pointer-events: auto;
+  }
+
+  .settings-banner-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  #{{ root_id }}[data-render-mode="embed"] .settings-banner-stack {
+    position: fixed;
+    left: 0;
+    right: 0;
+    pointer-events: none;
+  }
+
+  #{{ root_id }}[data-render-mode="section"] .settings-banner-stack {
+    position: relative;
+    width: 100%;
+    overflow: visible;
+    pointer-events: auto;
+  }
+
+  .settings-banner-stack--top {
+    top: 0;
+  }
+
+  .settings-banner-stack--bottom {
+    bottom: 0;
+  }
+
+  .settings-banner {
+    width: 100%;
+    position: relative;
+    pointer-events: auto;
+    background: var(--settings-banner-panel);
+    border: 1px solid rgba(91, 142, 247, 0.28);
+    box-shadow: var(--settings-banner-shadow);
+    overflow: hidden;
+  }
+
+  .settings-banner__scroll {
+    display: none;
+  }
+
+  .settings-banner__layout {
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 44px 12px 16px;
+  }
+
+  .settings-banner__content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    width: 100%;
+    text-align: center;
+  }
+
+  .settings-banner__eyebrow {
+    margin: 0;
+    font-size: 11px;
+    line-height: 1;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--settings-banner-muted);
+  }
+
+  .settings-banner__title {
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.1;
+    font-weight: 700;
+    color: var(--settings-banner-text);
+  }
+
+  .settings-banner__link {
+    color: var(--settings-banner-text);
+    text-decoration: none;
+  }
+
+  .settings-banner__text {
+    margin: 0;
+    max-width: 42ch;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--settings-banner-muted);
+  }
+
+  .settings-banner__countdown {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-weight: 700;
+    flex-wrap: wrap;
+  }
+
+  .settings-banner__countdown-rail {
+    width: 18px;
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.92);
+  }
+
+  .settings-banner__countdown-part {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    gap: 2px;
+  }
+
+  .settings-banner__countdown-value {
+    display: inline-flex;
+    width: 22px;
+    height: 22px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.98);
+    color: #111827;
+    font-size: 11px;
+    line-height: 1;
+  }
+
+  .settings-banner__countdown-label {
+    font-size: 8px;
+    line-height: 1;
+    text-transform: lowercase;
+    color: var(--settings-banner-muted);
+  }
+
+  .settings-banner__close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    border: 0;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .settings-banner__close:hover {
+    color: rgba(255, 255, 255, 0.78);
+  }
+
+  @media (max-width: 768px) {
+    .settings-banner__layout {
+      min-height: 56px;
+      padding: 12px 40px 12px 12px;
+    }
+
+    .settings-banner__content {
+      gap: 8px;
+      flex-direction: column;
+    }
+
+    .settings-banner__countdown {
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+  }

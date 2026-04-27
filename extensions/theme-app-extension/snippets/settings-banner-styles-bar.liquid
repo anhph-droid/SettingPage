@@ -1,0 +1,34 @@
+  #{{ root_id }}[data-render-mode="section"] .settings-banner--bar {
+    position: relative;
+    left: auto;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+  }
+
+  @supports (width: 100dvw) {
+    #{{ root_id }}[data-render-mode="section"] .settings-banner--bar {
+      width: 100%;
+      max-width: 100%;
+      margin-left: 0;
+    }
+  }
+
+  .settings-banner--bar .settings-banner__content {
+    flex-direction: row;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  .settings-banner--bar .settings-banner__title {
+    font-size: 14px;
+  }
+
+  @media (max-width: 768px) {
+    #{{ root_id }}[data-render-mode="section"] .settings-banner--bar {
+      left: auto;
+      width: 100%;
+      max-width: 100%;
+      margin-left: 0;
+    }
+  }
