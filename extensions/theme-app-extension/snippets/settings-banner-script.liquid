@@ -95,6 +95,7 @@
     function matchesExpectedBannerSize(banner) {
       const expectedBannerSize = getExpectedBannerSize();
       if (!expectedBannerSize) return true;
+      if (selectedBannerId) return true;
       return normalizeBannerSize(banner && banner.size) === expectedBannerSize;
     }
 
@@ -184,7 +185,7 @@
         return null;
       }
 
-      const bannerSize = storedBannerSize;
+      const bannerSize = forcedBannerSize ? normalizeBannerSize(forcedBannerSize) : storedBannerSize;
       const resolvedTextColor = banner.color || "#000000";
       wrapper.className = "settings-banner settings-banner--" + bannerSize;
       wrapper.style.background = banner.backgroundColor || "#f3f0ff";

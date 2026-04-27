@@ -6,7 +6,8 @@
   root_id: settings_banner_block_root_id,
   include_block_attributes: true,
   banner_id: block.settings.banner_id,
-  render_mode: 'section'
+  render_mode: 'section',
+  force_size: block.settings.banner_size
 %}
 
 {% schema %}
@@ -15,10 +16,23 @@
   "target": "section",
   "settings": [
     {
+      "type": "select",
+      "id": "banner_size",
+      "label": "Kiểu banner",
+      "default": "bar",
+      "options": [
+        { "value": "bar", "label": "Bar" },
+        { "value": "inline", "label": "Inline" },
+        { "value": "large", "label": "Large" },
+        { "value": "small", "label": "Small" }
+      ],
+      "info": "Chọn kiểu hiển thị của banner khi sử dụng ID này."
+    },
+    {
       "type": "text",
       "id": "banner_id",
       "label": "Banner ID",
-      "info": "Nhập ID banner muốn hiển thị trong block này."
+      "info": "Nhập ID banner muốn hiển thị trên theme."
     }
   ]
 }

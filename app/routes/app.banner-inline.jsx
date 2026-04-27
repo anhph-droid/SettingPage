@@ -597,3 +597,35 @@ export default function SettingPage() {
     </Page>
   );
 }
+
+// {% if template.name == 'collection' or template.name == 'search' %}
+// <style>
+
+// #fdt-container .search-filters__filter-option-title {
+//   color: #77A253;
+//   font-family: 'Inter', sans-serif;
+// }
+
+// #fdt-container .search-filters__filter-option-content-inner--scrollbar,
+// #fdt-container .search-filters__filter-option-content-inner,
+// #fdt-container .fdt-scrollbar-smooth {
+//   max-height: unset;
+//   height: auto;
+// }
+// #fdt-container filter-option[aria-collapsed="true"] .search-filters__filter-option-content-inner--scrollbar,
+// #fdt-container filter-option[aria-collapsed="true"] .search-filters__filter-option-content-inner,
+// #fdt-container filter-option[aria-collapsed="true"] .fdt-scrollbar-smooth {
+//   display: none;
+// }
+// #fdt-container .search-filters__filter-option-item-button-wrapper {
+//   width: auto;             
+//   }                 
+// </style>
+
+// <script>
+//    document.addEventListener('findter-app-initializing', () => {
+//         window.fdtMeta.showCurrencyCode = false;
+//     });
+// </script>
+// {% endif %}
+
