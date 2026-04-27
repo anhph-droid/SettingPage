@@ -127,13 +127,6 @@
       return "rgba(" + hexColor.r + ", " + hexColor.g + ", " + hexColor.b + ", 0.72)";
     }
 
-    function setBodyOffset() {
-      const topStack = root.querySelector(".settings-banner-stack--top");
-      const height = topStack ? topStack.offsetHeight : 0;
-      document.body.style.setProperty("--settings-banner-offset", height + "px");
-      document.body.classList.toggle("settings-banner-visible", height > 0);
-    }
-
     function getCountdownParts(endTime) {
       const distance = endTime - Date.now();
       if (distance <= 0) return null;
@@ -282,28 +275,6 @@
       });
     }
 
-    function renderTopBottomBars(banners) {
-      const topStack = document.createElement("div");
-      topStack.className = "settings-banner-stack settings-banner-stack--top";
-
-      const bottomStack = document.createElement("div");
-      bottomStack.className = "settings-banner-stack settings-banner-stack--bottom";
-
-      banners.forEach(function (banner) {
-        const bannerNode = createBannerNode(banner);
-        if (!bannerNode) return;
-
-        if (banner.position === "bottom") {
-          bottomStack.appendChild(bannerNode);
-        } else {
-          topStack.appendChild(bannerNode);
-        }
-      });
-
-      root.replaceChildren(topStack, bottomStack);
-      setBodyOffset();
-    }
-
     async function loadBanner() {
       try {
         const requestUrl = new URL("/apps/settings/banner-data", window.location.origin);
@@ -317,33 +288,16 @@
         if (!response.ok) return;
 
         const data = await response.json();
-        const pathname = normalizePath(window.location.pathname);
-        const dismissedBannerId = sessionStorage.getItem(dismissedKey);
         const activeBanners = data.banners || [];
 
         renderSectionSlots(activeBanners);
-
-        const matchedBars = activeBanners.filter(function (banner) {
-          if (!matchesTargetPage(banner.targetPage, pathname)) return false;
-          if (!matchesTargetProduct(banner.targetProductId, pathname)) return false;
-          if (normalizeBannerSize(banner.size) !== "bar") return false;
-          if (dismissedBannerId && String(banner.id) === dismissedBannerId) return false;
-          return true;
-        });
-
-        if (!matchedBars.length) {
-          clearRenderedBanner();
-          return;
-        }
-
-        renderTopBottomBars(matchedBars);
+        clearRenderedBanner();
       } catch (error) {
         console.error("Failed to load banner", error);
         clearRenderedBanner();
       }
     }
 
-    window.addEventListener("resize", setBodyOffset);
     loadBanner();
   })();
 </script>
