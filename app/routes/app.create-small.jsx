@@ -173,7 +173,7 @@ function RowActionMenu({ banner, fetcher, navigate }) {
           items={[
             {
               content: "Edit",
-              onAction: () => navigate(`/app/productBanner?id=${banner.id}`),
+              onAction: () => navigate(`/app/banner-small?id=${banner.id}`),
             },
             {
               content: "Duplicate",
