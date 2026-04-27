@@ -1,8 +1,5 @@
 {% liquid
   assign settings_banner_root_id = root_id | default: 'settings-banner-root'
-  assign settings_banner_selected_id = banner_id | default: blank
-  assign settings_banner_render_mode = render_mode | default: 'embed'
-  assign settings_banner_forced_size = force_size | default: blank
 %}
 
 <div id="{{ settings_banner_root_id }}" {% if include_block_attributes %}{{ block.shopify_attributes }}{% endif %}></div>
@@ -13,8 +10,5 @@
 
 {% render 'settings-banner-script',
   root_id: settings_banner_root_id,
-  banner_id: settings_banner_selected_id,
-  render_mode: settings_banner_render_mode,
-  force_size: settings_banner_forced_size,
   current_product_id: product.id
 %}

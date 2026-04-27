@@ -23,6 +23,7 @@
     position: relative;
     width: 100%;
     max-width: 100%;
+    overflow: visible;
     pointer-events: auto;
   }
 
@@ -42,6 +43,7 @@
   #{{ root_id }}[data-render-mode="section"] .settings-banner-stack {
     position: relative;
     width: 100%;
+    overflow: visible;
     pointer-events: auto;
   }
 
@@ -75,10 +77,6 @@
     max-width: min(92vw, 400px);
   }
 
-  .settings-banner--large {
-    background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
-  }
-
   .settings-banner--inline {
     width: auto;
     min-height: 160px;
@@ -88,43 +86,56 @@
 
   .settings-banner--large {
     width: 100%;
-    min-height: 208px;
+    min-height: 260px;
     border-radius: 18px;
+    overflow: visible;
     background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)),
-      linear-gradient(135deg, #686770, #55545d);
+      radial-gradient(circle at top left, rgba(255, 255, 255, 0.24), transparent 34%),
+      radial-gradient(circle at 85% 18%, rgba(255, 255, 255, 0.12), transparent 22%),
+      linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.01)),
+      linear-gradient(120deg, #151821 0%, #232836 48%, #4a4d62 100%);
   }
 
   .settings-banner--large::before,
   .settings-banner--large::after {
     content: "";
     position: absolute;
-    bottom: 0;
-    width: 34%;
-    height: 58%;
-    background: rgba(255, 255, 255, 0.12);
     pointer-events: none;
+    z-index: 0;
   }
 
   .settings-banner--large::before {
-    left: 0;
-    clip-path: polygon(0 100%, 0 38%, 56% 0, 100% 40%, 100% 100%);
+    left: -4%;
+    bottom: -18%;
+    width: 32%;
+    height: 72%;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.04));
+    clip-path: polygon(0 100%, 0 28%, 54% 0, 100% 44%, 100% 100%);
+    opacity: 0.42;
   }
 
   .settings-banner--large::after {
-    right: 0;
-    clip-path: polygon(0 48%, 42% 0, 100% 100%, 0 100%);
+    right: -8%;
+    top: -16%;
+    width: 38%;
+    height: 88%;
+    background: radial-gradient(circle at center, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0));
+    opacity: 0.8;
   }
 
   #{{ root_id }}[data-render-mode="section"] .settings-banner--bar,
   #{{ root_id }}[data-render-mode="section"] .settings-banner--large {
-    margin: 0;
-    max-width: 100%;
+    position: relative;
+    left: 50%;
+    width: 100vw;
+    max-width: 100vw;
+    margin: 0 0 0 -50vw;
+    border-radius: 0;
   }
 
   #{{ root_id }}[data-render-mode="section"] .settings-banner--small,
   #{{ root_id }}[data-render-mode="section"] .settings-banner--inline {
-    margin: 0;
+    margin: 0 auto;
   }
 
   #{{ root_id }}[data-render-mode="section"] .settings-banner--small {
@@ -137,7 +148,16 @@
   }
 
   #{{ root_id }}[data-render-mode="section"] .settings-banner--large {
-    min-height: 208px;
+    min-height: 260px;
+  }
+
+  @supports (width: 100dvw) {
+    #{{ root_id }}[data-render-mode="section"] .settings-banner--bar,
+    #{{ root_id }}[data-render-mode="section"] .settings-banner--large {
+      width: 100dvw;
+      max-width: 100dvw;
+      margin-left: calc(-50dvw);
+    }
   }
 
   .settings-banner__scroll {
@@ -163,8 +183,10 @@
   }
 
   .settings-banner--large .settings-banner__layout {
-    min-height: 208px;
-    padding: 28px 24px;
+    min-height: 260px;
+    align-items: center;
+    justify-content: center;
+    padding: 64px clamp(20px, 5vw, 48px) 32px;
   }
 
   .settings-banner__content {
@@ -184,15 +206,16 @@
   }
 
   .settings-banner--large .settings-banner__content {
-    gap: 14px;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
     position: relative;
     z-index: 1;
-    width: min(100%, 300px);
-    margin: 0 auto;
-    padding: 18px 20px;
-    border-radius: 10px;
-    background: rgba(24, 24, 27, 0.88);
-    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+    width: min(100%, 560px);
+    min-height: 100%;
+    margin: -92px auto 0;
+    padding: 0;
+    text-align: center;
   }
 
   .settings-banner__eyebrow {
@@ -221,7 +244,10 @@
   }
 
   .settings-banner--large .settings-banner__title {
-    font-size: 18px;
+    max-width: 12ch;
+    font-size: clamp(28px, 4vw, 44px);
+    line-height: 0.95;
+    letter-spacing: -0.04em;
   }
 
   .settings-banner--bar .settings-banner__title {
@@ -252,9 +278,9 @@
   }
 
   .settings-banner--large .settings-banner__text {
-    font-size: 12px;
-    line-height: 1.4;
-    max-width: 26ch;
+    font-size: 14px;
+    line-height: 1.6;
+    max-width: 42ch;
   }
 
   .settings-banner__countdown {
@@ -306,9 +332,12 @@
   }
 
   .settings-banner--large .settings-banner__countdown-value {
-    width: 32px;
-    height: 32px;
-    font-size: 16px;
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    font-size: 18px;
+    font-weight: 800;
+    box-shadow: 0 10px 18px rgba(15, 23, 42, 0.2);
   }
 
   .settings-banner--inline .settings-banner__countdown-label,
@@ -317,8 +346,25 @@
   }
 
   .settings-banner--large .settings-banner__eyebrow {
-    font-size: 9px;
-    letter-spacing: 0.24em;
+    font-size: 10px;
+    line-height: 1.2;
+    letter-spacing: 0.28em;
+  }
+
+  .settings-banner--large .settings-banner__countdown {
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .settings-banner--large .settings-banner__countdown-part {
+    width: 48px;
+    gap: 4px;
+  }
+
+  .settings-banner--large .settings-banner__countdown-rail {
+    width: 28px;
+    height: 10px;
+    opacity: 0.9;
   }
 
   .settings-banner--inline .settings-banner__eyebrow {
@@ -363,8 +409,8 @@
     }
 
     .settings-banner--large .settings-banner__layout {
-      min-height: 176px;
-      padding: 20px 16px;
+      min-height: 220px;
+      padding: 52px 16px 20px;
     }
 
     .settings-banner__content {
@@ -381,6 +427,51 @@
     #{{ root_id }}[data-render-mode="section"] .settings-banner--small,
     #{{ root_id }}[data-render-mode="section"] .settings-banner--inline {
       width: 100%;
+    }
+
+    .settings-banner--large {
+      min-height: 220px;
+    }
+
+    .settings-banner--large .settings-banner__content {
+      width: 100%;
+      margin-top: -72px;
+      padding: 0;
+      gap: 12px;
+    }
+
+    .settings-banner--large .settings-banner__title {
+      max-width: 100%;
+      font-size: clamp(22px, 8vw, 32px);
+    }
+
+    .settings-banner--large .settings-banner__text {
+      max-width: 100%;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .settings-banner--large .settings-banner__countdown {
+      gap: 8px;
+    }
+
+    .settings-banner--large .settings-banner__countdown-value,
+    .settings-banner--large .settings-banner__countdown-part {
+      width: 40px;
+    }
+
+    .settings-banner--large .settings-banner__countdown-value {
+      height: 40px;
+      font-size: 15px;
+      border-radius: 12px;
+    }
+
+    #{{ root_id }}[data-render-mode="section"] .settings-banner--bar,
+    #{{ root_id }}[data-render-mode="section"] .settings-banner--large {
+      left: 50%;
+      width: 100vw;
+      max-width: 100vw;
+      margin-left: -50vw;
     }
   }
 </style>

@@ -16,7 +16,7 @@ export default function App() {
   return (
     <AppProvider embedded apiKey={apiKey}>
       <s-app-nav>
-        <s-link href="/app">Home Page</s-link>
+        {/* <s-link href="/app">Home Page</s-link>
         <s-link href="/app/create-bar">create Bar widget</s-link>
         <s-link href="/app/create-small">create Small widget</s-link>
         <s-link href="/app/create-inline">create Inline widget</s-link>
@@ -24,7 +24,7 @@ export default function App() {
         <s-link href="/app/banner-bar"> Bar widget</s-link>
         <s-link href="/app/banner-small"> Small widget</s-link>
         <s-link href="/app/banner-inline">Inline widget</s-link>
-        <s-link href="/app/banner-large">Large widget</s-link>
+        <s-link href="/app/banner-large">Large widget</s-link> */}
 
         
       </s-app-nav>

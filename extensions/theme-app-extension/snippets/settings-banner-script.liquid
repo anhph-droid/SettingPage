@@ -1,14 +1,10 @@
 <script>
   (function () {
     const root = document.getElementById({{ root_id | json }});
-    const selectedBannerId = {{ banner_id | json }};
-    const renderMode = {{ render_mode | json }};
-    const forcedBannerSize = {{ force_size | json }};
     if (!root) return;
     if (root.dataset.settingsBannerMounted === "true") return;
 
     root.dataset.settingsBannerMounted = "true";
-    root.dataset.renderMode = renderMode;
 
     const dismissedKey = "settings-banner-dismissed";
     const currentProductId = {{ current_product_id | json }};
@@ -18,10 +14,19 @@
       return String(value).trim().toLowerCase();
     }
 
-    function getExpectedBannerSize() {
-      if (forcedBannerSize) return normalizeBannerSize(forcedBannerSize);
-      if (renderMode === "embed") return "bar";
-      return null;
+    function normalizeBannerId(value) {
+      if (value === null || value === undefined) return "";
+
+      const normalized = String(value).trim();
+      if (!normalized) return "";
+      if (!/^\d+$/.test(normalized)) return "";
+      return normalized;
+    }
+
+    function clearRenderedBanner() {
+      root.replaceChildren();
+      document.body.classList.remove("settings-banner-visible");
+      document.body.style.removeProperty("--settings-banner-offset");
     }
 
     function normalizePath(value) {
@@ -63,6 +68,7 @@
         const customTarget = normalizePath(targetPage.slice("custom:".length).trim());
         return pathname === customTarget;
       }
+
       return false;
     }
 
@@ -90,13 +96,6 @@
       if (!targetProductIds.length) return true;
 
       return targetProductIds.includes(normalizeProductId(currentProductId));
-    }
-
-    function matchesExpectedBannerSize(banner) {
-      const expectedBannerSize = getExpectedBannerSize();
-      if (!expectedBannerSize) return true;
-      if (selectedBannerId) return true;
-      return normalizeBannerSize(banner && banner.size) === expectedBannerSize;
     }
 
     function parseHexColor(value) {
@@ -129,17 +128,10 @@
     }
 
     function setBodyOffset() {
-      if (renderMode !== "embed") return;
       const topStack = root.querySelector(".settings-banner-stack--top");
       const height = topStack ? topStack.offsetHeight : 0;
       document.body.style.setProperty("--settings-banner-offset", height + "px");
       document.body.classList.toggle("settings-banner-visible", height > 0);
-    }
-
-    function clearBodyOffset() {
-      if (renderMode !== "embed") return;
-      document.body.classList.remove("settings-banner-visible");
-      document.body.style.removeProperty("--settings-banner-offset");
     }
 
     function getCountdownParts(endTime) {
@@ -180,13 +172,9 @@
 
     function createBannerNode(banner) {
       const wrapper = document.createElement("div");
-      const storedBannerSize = normalizeBannerSize(banner.size);
-      if (!matchesExpectedBannerSize(banner)) {
-        return null;
-      }
-
-      const bannerSize = forcedBannerSize ? normalizeBannerSize(forcedBannerSize) : storedBannerSize;
+      const bannerSize = normalizeBannerSize(banner.size);
       const resolvedTextColor = banner.color || "#000000";
+
       wrapper.className = "settings-banner settings-banner--" + bannerSize;
       wrapper.style.background = banner.backgroundColor || "#f3f0ff";
       wrapper.style.color = resolvedTextColor;
@@ -246,7 +234,7 @@
             if (!parts) {
               wrapper.remove();
               if (!root.querySelector(".settings-banner")) {
-                clearBodyOffset();
+                clearRenderedBanner();
               } else {
                 setBodyOffset();
               }
@@ -264,23 +252,37 @@
       return wrapper;
     }
 
-    function renderBanners(banners) {
-      if (renderMode === "section") {
-        const stack = document.createElement("div");
-        stack.className = "settings-banner-stack settings-banner-stack--section";
+    function renderSectionSlots(banners) {
+      const slots = document.querySelectorAll("[data-settings-banner-slot='true']");
+      if (!slots.length) return;
 
-        banners.forEach(function (banner) {
-          const bannerNode = createBannerNode(banner);
-          if (bannerNode) {
-            stack.appendChild(bannerNode);
-          }
+      slots.forEach(function (slot) {
+        const slotBannerId = normalizeBannerId(slot.getAttribute("data-banner-id"));
+        if (!slotBannerId) {
+          slot.replaceChildren();
+          return;
+        }
+
+        const matchedBanner = banners.find(function (banner) {
+          return String(banner.id) === slotBannerId;
         });
 
-        root.replaceChildren(stack);
-        setBodyOffset();
-        return;
-      }
+        if (!matchedBanner) {
+          slot.replaceChildren();
+          return;
+        }
 
+        const bannerNode = createBannerNode(matchedBanner);
+        if (!bannerNode) {
+          slot.replaceChildren();
+          return;
+        }
+
+        slot.replaceChildren(bannerNode);
+      });
+    }
+
+    function renderTopBottomBars(banners) {
       const topStack = document.createElement("div");
       topStack.className = "settings-banner-stack settings-banner-stack--top";
 
@@ -305,10 +307,6 @@
     async function loadBanner() {
       try {
         const requestUrl = new URL("/apps/settings/banner-data", window.location.origin);
-        if (selectedBannerId) {
-          requestUrl.searchParams.set("bannerId", selectedBannerId);
-        }
-
         const response = await fetch(requestUrl.toString(), {
           credentials: "same-origin",
           headers: {
@@ -321,33 +319,31 @@
         const data = await response.json();
         const pathname = normalizePath(window.location.pathname);
         const dismissedBannerId = sessionStorage.getItem(dismissedKey);
+        const activeBanners = data.banners || [];
 
-        const matchedBanners = (data.banners || []).filter(function (banner) {
-          if (!selectedBannerId) {
-            if (!matchesTargetPage(banner.targetPage, pathname)) return false;
-            if (!matchesTargetProduct(banner.targetProductId, pathname)) return false;
-          }
-          if (!matchesExpectedBannerSize(banner)) return false;
+        renderSectionSlots(activeBanners);
+
+        const matchedBars = activeBanners.filter(function (banner) {
+          if (!matchesTargetPage(banner.targetPage, pathname)) return false;
+          if (!matchesTargetProduct(banner.targetProductId, pathname)) return false;
+          if (normalizeBannerSize(banner.size) !== "bar") return false;
           if (dismissedBannerId && String(banner.id) === dismissedBannerId) return false;
           return true;
         });
 
-        if (!matchedBanners.length) {
-          root.replaceChildren();
-          clearBodyOffset();
+        if (!matchedBars.length) {
+          clearRenderedBanner();
           return;
         }
 
-        renderBanners(matchedBanners);
+        renderTopBottomBars(matchedBars);
       } catch (error) {
         console.error("Failed to load banner", error);
-        clearBodyOffset();
+        clearRenderedBanner();
       }
     }
 
-    if (renderMode === "embed") {
-      window.addEventListener("resize", setBodyOffset);
-    }
+    window.addEventListener("resize", setBodyOffset);
     loadBanner();
   })();
 </script>

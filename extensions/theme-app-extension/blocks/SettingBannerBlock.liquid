@@ -2,12 +2,16 @@
   assign settings_banner_block_root_id = 'settings-banner-block-' | append: block.id
 %}
 
-{% render 'settings-banner-content',
-  root_id: settings_banner_block_root_id,
-  include_block_attributes: true,
-  banner_id: block.settings.banner_id,
-  render_mode: 'section',
-  force_size: block.settings.banner_size
+<div
+  id="{{ settings_banner_block_root_id }}"
+  data-settings-banner-slot="true"
+  data-render-mode="section"
+  data-banner-id="{{ block.settings.banner_id | escape }}"
+  {{ block.shopify_attributes }}
+></div>
+
+{% render 'settings-banner-styles',
+  root_id: settings_banner_block_root_id
 %}
 
 {% schema %}
