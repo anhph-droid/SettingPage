@@ -340,7 +340,7 @@ function PreviewCard({ preset }) {
           <div style={{ ...FRAME_BOX, left: "346px", bottom: "26px", width: "146px", height: "34px" }} />
         </>
       ) : null}
-
+     
       <div
         style={
           isInline

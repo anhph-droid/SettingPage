@@ -1,8 +1,13 @@
 {% liquid
   assign settings_banner_root_id = root_id | default: 'settings-banner-root'
+  assign settings_banner_render_mode = render_mode | default: 'embed'
 %}
 
-<div id="{{ settings_banner_root_id }}" {% if include_block_attributes %}{{ block.shopify_attributes }}{% endif %}></div>
+<div
+  id="{{ settings_banner_root_id }}"
+  data-render-mode="{{ settings_banner_render_mode }}"
+  {% if include_block_attributes %}{{ block.shopify_attributes }}{% endif %}
+></div>
 
 {% render 'settings-banner-styles',
   root_id: settings_banner_root_id

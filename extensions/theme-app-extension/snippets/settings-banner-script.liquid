@@ -8,6 +8,8 @@
 
     const dismissedKey = "settings-banner-dismissed";
     const currentProductId = {{ current_product_id | json }};
+    const renderMode = root.dataset.renderMode || "embed";
+    const isEmbedRoot = renderMode === "embed";
 
     function normalizeBannerSize(value) {
       if (value === "medium" || !value) return "bar";
@@ -25,8 +27,6 @@
 
     function clearRenderedBanner() {
       root.replaceChildren();
-      document.body.classList.remove("settings-banner-visible");
-      document.body.style.removeProperty("--settings-banner-offset");
     }
 
     function normalizePath(value) {
@@ -70,7 +70,7 @@
       }
 
       return false;
-    }
+    }    
 
     function normalizeProductId(value) {
       if (value === null || value === undefined || value === "") return "";
@@ -245,6 +245,83 @@
       return wrapper;
     }
 
+    function placeEmbedRootBeforeHeader() {
+      if (!isEmbedRoot) return;
+
+      const headerHost = document.querySelector(
+        "#shopify-section-header, .shopify-section-group-header-group, header[role='banner'], .header-wrapper, header.header"
+      );
+
+      if (headerHost && headerHost.parentNode && root.parentNode !== headerHost.parentNode) {
+        headerHost.parentNode.insertBefore(root, headerHost);
+        return;
+      }
+
+      if (headerHost && root.nextElementSibling !== headerHost) {
+        headerHost.parentNode.insertBefore(root, headerHost);
+        return;
+      }
+
+      if (!headerHost && document.body.firstChild !== root) {
+        document.body.insertBefore(root, document.body.firstChild);
+      }
+    }
+
+    function setBodyOffset() {
+      placeEmbedRootBeforeHeader();
+    }
+
+    function renderEmbed(banners) {
+      if (!isEmbedRoot) return;
+
+      placeEmbedRootBeforeHeader();
+
+      const pathname = normalizePath(window.location.pathname);
+      const dismissedBannerId = normalizeBannerId(sessionStorage.getItem(dismissedKey));
+      const embedBanners = banners.filter(function (banner) {
+        if (normalizeBannerSize(banner.size) !== "bar") return false;
+        if (dismissedBannerId && String(banner.id) === dismissedBannerId) return false;
+        if (!matchesTargetPage(banner.targetPage || "all", pathname)) return false;
+        return matchesTargetProduct(banner.targetProductId, pathname);
+      });
+
+      if (!embedBanners.length) {
+        clearRenderedBanner();
+        return;
+      }
+
+      root.replaceChildren();
+
+      ["top", "bottom"].forEach(function (position) {
+        const positionBanners = embedBanners.filter(function (banner) {
+          return (banner.position || "top") === position;
+        });
+
+        if (!positionBanners.length) return;
+
+        const stack = document.createElement("div");
+        stack.className = "settings-banner-stack settings-banner-stack--" + position;
+
+        positionBanners.forEach(function (banner) {
+          const bannerNode = createBannerNode(banner);
+          if (bannerNode) {
+            stack.appendChild(bannerNode);
+          }
+        });
+
+        if (stack.childNodes.length) {
+          root.appendChild(stack);
+        }
+      });
+
+      if (!root.childNodes.length) {
+        clearRenderedBanner();
+        return;
+      }
+
+      window.requestAnimationFrame(setBodyOffset);
+    }
+
     function renderSectionSlots(banners) {
       const slots = document.querySelectorAll("[data-settings-banner-slot='true']");
       if (!slots.length) return;
@@ -274,7 +351,6 @@
         slot.replaceChildren(bannerNode);
       });
     }
-
     async function loadBanner() {
       try {
         const requestUrl = new URL("/apps/settings/banner-data", window.location.origin);
@@ -285,19 +361,25 @@
           },
         });
 
-        if (!response.ok) return;
+        if (!response.ok) {
+          return;
+        }
 
         const data = await response.json();
         const activeBanners = data.banners || [];
 
         renderSectionSlots(activeBanners);
-        clearRenderedBanner();
+        renderEmbed(activeBanners);
       } catch (error) {
-        console.error("Failed to load banner", error);
         clearRenderedBanner();
       }
     }
 
     loadBanner();
+
+    if (isEmbedRoot) {
+      window.addEventListener("resize", setBodyOffset);
+      window.requestAnimationFrame(placeEmbedRootBeforeHeader);
+    }
   })();
 </script>

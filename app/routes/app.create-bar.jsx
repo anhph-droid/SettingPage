@@ -109,9 +109,9 @@ export const loader = async ({ request }) => {
       enabled: barBanners.filter((banner) => getBannerStatusMeta(banner).label === "Enabled").length,
       total: barBanners.length,
     },
-  };
+  }; 
 };
-
+     
 function RowActionMenu({ banner, fetcher, navigate }) {
   const [active, setActive] = useState(false);
   const toggleActive = useCallback(() => setActive((prev) => !prev), []);

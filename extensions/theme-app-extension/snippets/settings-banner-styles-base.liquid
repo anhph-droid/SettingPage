@@ -1,21 +1,18 @@
-  body.settings-banner-visible {
-    padding-top: var(--settings-banner-offset, 0px) !important;
-    transition: padding-top 0.2s ease;
-  }
-
   #{{ root_id }} {
-    --settings-banner-panel: #1f2027;
-    --settings-banner-panel-soft: #2a2c35;
+    --settings-banner-panel: linear-gradient(90deg, #18202d 0%, #233047 52%, #1d293b 100%);
+    --settings-banner-panel-soft: rgba(255, 255, 255, 0.12);
     --settings-banner-text: #f8fafc;
-    --settings-banner-muted: rgba(248, 250, 252, 0.72);
-    --settings-banner-shadow: 0 16px 36px rgba(17, 24, 39, 0.18);
+    --settings-banner-muted: rgba(226, 232, 240, 0.82);
+    --settings-banner-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
   }
 
   #{{ root_id }}[data-render-mode="embed"] {
-    position: fixed;
-    inset: 0;
-    z-index: 999999;
-    pointer-events: none;
+    position: relative;
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    z-index: 20;
+    pointer-events: auto;
   }
 
   #{{ root_id }}[data-render-mode="section"] {
@@ -29,14 +26,15 @@
   .settings-banner-stack {
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: 0;
   }
 
   #{{ root_id }}[data-render-mode="embed"] .settings-banner-stack {
-    position: fixed;
-    left: 0;
-    right: 0;
-    pointer-events: none;
+    position: relative;
+    left: auto;
+    right: auto;
+    width: 100%;
+    pointer-events: auto;
   }
 
   #{{ root_id }}[data-render-mode="section"] .settings-banner-stack {
@@ -59,9 +57,14 @@
     position: relative;
     pointer-events: auto;
     background: var(--settings-banner-panel);
-    border: 1px solid rgba(91, 142, 247, 0.28);
+    border: 1px solid rgba(148, 163, 184, 0.16);
     box-shadow: var(--settings-banner-shadow);
     overflow: hidden;
+  }
+
+  #{{ root_id }}[data-render-mode="embed"] .settings-banner-stack--top .settings-banner {
+    border-top: 0;
+    box-shadow: 0 10px 26px rgba(15, 23, 42, 0.14);
   }
 
   .settings-banner__scroll {
@@ -69,11 +72,11 @@
   }
 
   .settings-banner__layout {
-    min-height: 48px;
+    min-height: 50px;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 12px 44px 12px 16px;
+    padding: 10px 44px 10px 18px;
   }
 
   .settings-banner__content {
@@ -81,25 +84,25 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 12px;
+    gap: 10px;
     width: 100%;
     text-align: center;
   }
 
   .settings-banner__eyebrow {
     margin: 0;
-    font-size: 11px;
+    font-size: 10px;
     line-height: 1;
-    letter-spacing: 0.18em;
+    letter-spacing: 0.22em;
     text-transform: uppercase;
     color: var(--settings-banner-muted);
   }
 
   .settings-banner__title {
     margin: 0;
-    font-size: 16px;
-    line-height: 1.1;
-    font-weight: 700;
+    font-size: 15px;
+    line-height: 1.15;
+    font-weight: 600;
     color: var(--settings-banner-text);
   }
 
@@ -111,8 +114,8 @@
   .settings-banner__text {
     margin: 0;
     max-width: 42ch;
-    font-size: 13px;
-    line-height: 1.45;
+    font-size: 12px;
+    line-height: 1.4;
     color: var(--settings-banner-muted);
   }
 
@@ -163,15 +166,16 @@
 
   .settings-banner__close {
     position: absolute;
-    top: 14px;
+    top: 50%;
     right: 14px;
     border: 0;
     background: transparent;
-    color: rgba(255, 255, 255, 0.45);
-    font-size: 24px;
+    color: rgba(255, 255, 255, 0.48);
+    font-size: 20px;
     line-height: 1;
     cursor: pointer;
     padding: 0;
+    transform: translateY(-50%);
   }
 
   .settings-banner__close:hover {
@@ -180,12 +184,12 @@
 
   @media (max-width: 768px) {
     .settings-banner__layout {
-      min-height: 56px;
-      padding: 12px 40px 12px 12px;
+      min-height: 48px;
+      padding: 10px 38px 10px 12px;
     }
 
     .settings-banner__content {
-      gap: 8px;
+      gap: 7px;
       flex-direction: column;
     }
 

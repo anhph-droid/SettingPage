@@ -14,6 +14,11 @@
   root_id: settings_banner_block_root_id
 %}
 
+{% render 'settings-banner-script',
+  root_id: settings_banner_block_root_id,
+  current_product_id: product.id
+%}
+
 {% schema %}
 {
   "name": "Settings Banner",
@@ -24,7 +29,7 @@
       "id": "banner_id",
       "label": "Banner ID",
       "placeholder": "VD: 123",
-      "info": "Nhập ID banner (số) từ bảng quản trị banner của app để hiển thị banner đó trên theme."
+      "info": "Nhập Banner ID để hiển thị banner small, large hoặc inline trong section/theme."
     }
   ]
 }

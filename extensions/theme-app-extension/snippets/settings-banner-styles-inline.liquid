@@ -8,9 +8,10 @@
   }
 
   #{{ root_id }}[data-render-mode="section"] .settings-banner--inline {
-    width: min(100%, 960px);
+    width: 100%;
+    max-width: 100%;
     min-height: 0;
-    margin: 0 auto;
+    margin: 0;
     border-radius: 12px;
     box-shadow: 0 10px 24px rgba(17, 24, 39, 0.12);
     background: #ffffff !important;
@@ -123,7 +124,8 @@
     }
 
     #{{ root_id }}[data-render-mode="section"] .settings-banner--inline {
-      width: calc(100vw - 16px);
+      width: 100%;
+      max-width: 100%;
     }
 
     #{{ root_id }}[data-render-mode="section"] .settings-banner--inline .settings-banner__layout {
