@@ -15,8 +15,8 @@ import { MenuHorizontalIcon } from "@shopify/polaris-icons";
 import { useCallback, useState } from "react";
 import { useFetcher, useLoaderData, useNavigate } from "react-router";
 
-import { getBannerStatusMeta, isBannerExpired } from "../lib/bannerStatus";
-import { syncExpiredBannersForShop } from "../lib/bannerStatus.server";
+import { getBannerStatusMeta, isBannerExpired } from "../banner.shared";
+import { syncExpiredBannersForShop } from "../banner.server";
 import prisma from "../db.server";
 import { authenticate } from "../shopify.server";
 

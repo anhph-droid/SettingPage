@@ -1,5 +1,4 @@
-import prisma from "../db.server";
-import { isBannerExpired } from "./bannerStatus";
+import prisma from "./db.server.js";
 
 export async function syncExpiredBannersForShop(shop, now = new Date()) {
   if (!shop) return;

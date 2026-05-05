@@ -169,8 +169,28 @@
       const resolvedTextColor = banner.color || "#000000";
 
       wrapper.className = "settings-banner settings-banner--" + bannerSize;
+      if (banner.backgroundImage) {
+        wrapper.classList.add("settings-banner--has-image");
+      }
       wrapper.style.background = banner.backgroundColor || "#f3f0ff";
+      if (banner.backgroundImage) {
+        wrapper.style.backgroundImage =
+          "linear-gradient(rgba(17, 24, 39, 0.28), rgba(17, 24, 39, 0.28)), url('" +
+          String(banner.backgroundImage).replace(/'/g, "%27") +
+          "')";
+        wrapper.style.backgroundPosition = "center";
+        wrapper.style.backgroundRepeat = "no-repeat";
+        wrapper.style.backgroundSize = "cover";
+      }
       wrapper.style.color = resolvedTextColor;
+      wrapper.style.border =
+        banner.borderStyle === "none"
+          ? "none"
+          : ((banner.borderWidth && banner.borderWidth !== "0" ? banner.borderWidth : "1") +
+            "px " +
+            (banner.borderStyle || "solid") +
+            " " +
+            (banner.borderColor || "rgba(0, 0, 0, 0.08)"));
       wrapper.style.borderColor = banner.borderColor || "rgba(0, 0, 0, 0.08)";
       wrapper.style.borderWidth = banner.borderStyle === "none"
         ? "0"
@@ -223,7 +243,6 @@
         if (!Number.isNaN(endTime)) {
           const updateCountdown = function () {
             const parts = getCountdownParts(endTime);
-
             if (!parts) {
               wrapper.remove();
               if (!root.querySelector(".settings-banner")) {

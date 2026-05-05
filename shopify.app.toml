@@ -2,11 +2,11 @@
 
 client_id = "423df3a000c6df048fb9dc36c7cac025"
 name = "cukhoai"
-application_url = "https://example.com"
+application_url = "https://store.cukhoai.app"
 embedded = true
 
 [build]
-automatically_update_urls_on_dev = true
+automatically_update_urls_on_dev = false
 
 [webhooks]
 api_version = "2026-04"
@@ -24,7 +24,7 @@ api_version = "2026-04"
   uri = "/webhooks/app/scopes_update"
 
 [auth]
-redirect_urls = [ "https://example.com/api/auth" ]
+redirect_urls = [ "https://store.cukhoai.app/auth/callback", "https://store.cukhoai.app/auth/shopify/callback", "https://store.cukhoai.app/api/auth" ]
 
 [app_proxy]
 url = "/apps/settings"

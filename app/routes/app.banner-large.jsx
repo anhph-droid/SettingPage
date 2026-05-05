@@ -2,14 +2,16 @@ import { useNavigate, useFetcher, useLoaderData } from "react-router";
 
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
+import { getBannerImageMap, setBannerImageForBanner } from "../banner-images.server";
+import { uploadImageToShopifyFiles } from "../shopify-files.server";
 import {
   formatDateTimeForInput,
   formatDateTimeForShopify,
   getPersistedBannerStatus,
   hasTimeEndChanged,
-} from "../lib/bannerStatus";
-import { syncExpiredBannersForShop } from "../lib/bannerStatus.server";
-import { getBannerPreset, getBannerPreviewStyle, getBannerSize } from "../lib/bannerPresets";
+} from "../banner.shared";
+import { syncExpiredBannersForShop } from "../banner.server";
+import { getBannerPreset, getBannerPreviewStyle, getBannerSize } from "../banner.shared";
 
 import {
   Page,
@@ -54,6 +56,7 @@ const DEFAULT_SETTINGS = {
   title: "Input your title here",
   content: "Input your content here",
   backgroundColor: "#f3f0ff",
+  backgroundImage: "",
   color: "#000000",
   titleFont: "'Playfair Display', serif",
   contentFont: "Inter, sans-serif",
@@ -96,7 +99,7 @@ function normalizeCustomTargetPage(value) {
 
   return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
 }
-
+   
 function getTargetPageState(targetPageValue) {
   if (!targetPageValue || targetPageValue === "all") {
     return { selectedTargetPage: "all", customTargetPage: "" };
@@ -113,7 +116,7 @@ function getTargetPageState(targetPageValue) {
 }
 
 export const loader = async ({ request }) => {
-  const { session } = await authenticate.admin(request);
+  const { session, admin } = await authenticate.admin(request);
   await syncExpiredBannersForShop(session.shop);
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
@@ -121,16 +124,26 @@ export const loader = async ({ request }) => {
   let banner = null;
 
   if (id) {
-    banner = await prisma.app_banner.findUnique({
-      where: { id: Number(id) },
-    });
+    const [imageMap, bannerRecord] = await Promise.all([
+      getBannerImageMap(admin),
+      prisma.app_banner.findUnique({
+        where: { id: Number(id) },
+      }),
+    ]);
+
+    if (bannerRecord) {
+      banner = {
+        ...bannerRecord,
+        backgroundImage: imageMap[String(bannerRecord.id)] || "",
+      };
+    }
   }
 
   return { banner, preset: getBannerPreset(preset) };
 };
 
 export const action = async ({ request }) => {
-  const { session } = await authenticate.admin(request);
+  const { session, admin } = await authenticate.admin(request);
   const formData = await request.formData();
 
   const id = formData.get("id");
@@ -138,6 +151,8 @@ export const action = async ({ request }) => {
   const content = formData.get("content")?.toString() || "";
   const color = formData.get("color")?.toString() || "#000000";
   const backgroundColor = formData.get("backgroundColor")?.toString() || "#f3f0ff";
+  let backgroundImage = formData.get("backgroundImage")?.toString().trim() || null;
+  const backgroundImageFile = formData.get("backgroundImageFile");
   const size = formData.get("size")?.toString() || "medium";
   const position = formData.get("position")?.toString() || "top";
   const priority = Number(formData.get("priority") || 0);
@@ -165,6 +180,23 @@ export const action = async ({ request }) => {
     : null;
   const shouldEnableFromDateChange = hasTimeEndChanged(existingBanner?.timeEnd, timeEnd);
 
+  if (backgroundImageFile instanceof File && backgroundImageFile.size > 0) {
+    try {
+      backgroundImage = await uploadImageToShopifyFiles({
+        admin,
+        file: backgroundImageFile,
+        filenamePrefix: `banner-${session.shop.replace(/\./g, "-")}`,
+      });
+    } catch (error) {
+      return {
+        ok: false,
+        errors: {
+          general: error instanceof Error ? error.message : "Image upload failed",
+        },
+      };
+    }
+  }
+
   const data = {
     shop: session.shop,
     title,
@@ -186,16 +218,29 @@ export const action = async ({ request }) => {
     timeEnd,
   };
 
+  let savedBanner;
+
   if (id) {
-    await prisma.app_banner.update({
+    savedBanner = await prisma.app_banner.update({
       where: { id: Number(id) },
       data,
     });
   } else {
-    await prisma.app_banner.create({ data });
+    savedBanner = await prisma.app_banner.create({ data });
   }
 
-  return { ok: true };
+  try {
+    backgroundImage = await setBannerImageForBanner(admin, savedBanner.id, backgroundImage);
+  } catch (error) {
+    return {
+      ok: false,
+      errors: {
+        general: error instanceof Error ? error.message : "Image persistence failed",
+      },
+    };
+  }
+
+  return { ok: true, backgroundImage };
 };
 
 export default function SettingPage() {
@@ -211,6 +256,13 @@ export default function SettingPage() {
   const [backgroundColor, setBackgroundColor] = useState(
     initialSettings?.backgroundColor || DEFAULT_SETTINGS.backgroundColor,
   );
+  const [backgroundImage, setBackgroundImage] = useState(
+    initialSettings?.backgroundImage || DEFAULT_SETTINGS.backgroundImage,
+  );
+  const [backgroundImagePreview, setBackgroundImagePreview] = useState(
+    initialSettings?.backgroundImage || DEFAULT_SETTINGS.backgroundImage,
+  );
+  const [backgroundImageInputKey, setBackgroundImageInputKey] = useState(0);
   const [titleFont, setTitleFont] = useState(
     initialSettings?.titleFont || DEFAULT_SETTINGS.titleFont,
   );
@@ -245,6 +297,10 @@ export default function SettingPage() {
 
   useEffect(() => {
     if (fetcher.data?.ok) {
+      if (typeof fetcher.data.backgroundImage === "string") {
+        setBackgroundImage(fetcher.data.backgroundImage);
+        setBackgroundImagePreview(fetcher.data.backgroundImage);
+      }
       shopify.toast.show("Settings saved successfully!", { duration: 3000 });
       if (!initialSettings?.id) navigate(-1);
     }
@@ -264,6 +320,20 @@ export default function SettingPage() {
     return () => clearInterval(intervalId);
   }, [timeEnd]);
 
+  useEffect(() => {
+    setBackgroundImagePreview(backgroundImage);
+  }, [backgroundImage]);
+
+  useEffect(() => {
+    if (!backgroundImagePreview || !backgroundImagePreview.startsWith("blob:")) {
+      return undefined;
+    }
+
+    return () => {
+      URL.revokeObjectURL(backgroundImagePreview);
+    };
+  }, [backgroundImagePreview]);
+
   const remainingTime = getRemainingTimeParts(timeEnd, now);
   const showCountdown = remainingTime && !remainingTime.expired;
   const formattedTimeEnd = formatDateTimeForShopify(timeEnd);
@@ -273,6 +343,23 @@ export default function SettingPage() {
   const [borderStyle, setBorderStyle] = useState(initialSettings?.borderStyle || "solid");
   const [borderRadius, setBorderRadius] = useState(initialSettings?.borderRadius || "0");
 
+  const handleBackgroundImageUpload = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      setBackgroundImagePreview(backgroundImage);
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    setBackgroundImagePreview(objectUrl);
+  };
+
+  const handleRemoveBackgroundImage = () => {
+    setBackgroundImage("");
+    setBackgroundImagePreview("");
+    setBackgroundImageInputKey((value) => value + 1);
+  };
+
   return (
     <Page
       title={initialSettings ? "Edit Banner" : "Create Large widget"}
@@ -280,7 +367,7 @@ export default function SettingPage() {
       backAction={{ content: "Back", onAction: () => navigate(-1) }}
     >
       <div style={{ display: "grid", gap: "24px", gridTemplateColumns: "2fr 1fr" }}>
-        <fetcher.Form method="post">
+        <fetcher.Form method="post" encType="multipart/form-data">
           <input type="hidden" name="id" value={initialSettings?.id || ""} />
           <input type="hidden" name="size" value={size} />
 
@@ -344,6 +431,56 @@ export default function SettingPage() {
                     <input type="hidden" name="color" value={color} />
                   </div>
                 </FormLayout.Group>
+
+                <div>
+                  <Text variant="bodyMd" as="p" fontWeight="medium">
+                    Background image
+                  </Text>
+                  <input type="hidden" name="backgroundImage" value={backgroundImage} />
+                  <input
+                    key={backgroundImageInputKey}
+                    type="file"
+                    name="backgroundImageFile"
+                    accept="image/*"
+                    onChange={handleBackgroundImageUpload}
+                    style={{
+                      width: "100%",
+                      marginTop: "8px",
+                    }}
+                  />
+                  {backgroundImagePreview ? (
+                    <BlockStack gap="200">
+                      <div
+                        style={{
+                          marginTop: "12px",
+                          borderRadius: "12px",
+                          overflow: "hidden",
+                          border: "1px solid #dfe3e8",
+                        }}
+                      >
+                        <img
+                          src={backgroundImagePreview}
+                          alt="Background preview"
+                          style={{
+                            display: "block",
+                            width: "100%",
+                            maxHeight: "180px",
+                            objectFit: "cover",
+                          }}
+                        />
+                      </div>
+                      <InlineStack align="space-between" blockAlign="center">
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          {backgroundImage ? "Current saved image will be used on theme." : "Preview image selected."}
+                        </Text>
+                        <Button onClick={handleRemoveBackgroundImage}>Remove image</Button>
+                      </InlineStack>
+                    </BlockStack>
+                  ) : null}
+                  <Text as="p" variant="bodySm" tone="subdued">
+                    Chon anh va save de upload len Shopify Files. Neu khong chon anh moi, app giu lai anh da luu.
+                  </Text>
+                </div>
 
                 <FormLayout.Group>
                   <Select
@@ -510,6 +647,12 @@ export default function SettingPage() {
             <div
               style={{
                 backgroundColor,
+                backgroundImage: backgroundImagePreview
+                  ? `linear-gradient(rgba(17, 24, 39, 0.3), rgba(17, 24, 39, 0.3)), url(${backgroundImagePreview})`
+                  : undefined,
+                backgroundPosition: backgroundImagePreview ? "center" : undefined,
+                backgroundRepeat: backgroundImagePreview ? "no-repeat" : undefined,
+                backgroundSize: backgroundImagePreview ? "cover" : undefined,
                 color,
                 ...previewStyle.container,
                 textAlign: "center",

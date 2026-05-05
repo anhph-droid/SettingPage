@@ -7,9 +7,9 @@ import {
   formatDateTimeForShopify,
   getPersistedBannerStatus,
   hasTimeEndChanged,
-} from "../lib/bannerStatus";
-import { syncExpiredBannersForShop } from "../lib/bannerStatus.server";
-import { getBannerPreset, getBannerPreviewStyle, getBannerSize } from "../lib/bannerPresets";
+} from "../banner.shared";
+import { syncExpiredBannersForShop } from "../banner.server";
+import { getBannerPreset, getBannerPreviewStyle, getBannerSize } from "../banner.shared";
 
 import {
   Page,
@@ -48,7 +48,7 @@ const PAGE_OPTIONS = [
   { label: "Search", value: "search" },
   { label: "Cart page", value: "cart" },
   { label: "Custom URL / path", value: "custom" },
-  { label: "Product page", value: "product" }, // thêm để UX rõ hơn (tuỳ chọn)
+  { label: "Product page", value: "product" }, 
 ];
 
 const DEFAULT_SETTINGS = {

@@ -1,5 +1,3 @@
-/* eslint-disable react/prop-types */
-
 import {
   ActionList,
   Badge,
@@ -16,8 +14,8 @@ import { MenuHorizontalIcon } from "@shopify/polaris-icons";
 import { useCallback, useState } from "react";
 import { useFetcher, useLoaderData, useNavigate } from "react-router";
 
-import { getBannerStatusMeta, isBannerExpired } from "../lib/bannerStatus";
-import { syncExpiredBannersForShop } from "../lib/bannerStatus.server";
+import { getBannerStatusMeta, isBannerExpired } from "../banner.shared";
+import { syncExpiredBannersForShop } from "../banner.server";
 import prisma from "../db.server";
 import { authenticate } from "../shopify.server";
 
@@ -94,7 +92,7 @@ function RowActionMenu({ banner, fetcher, navigate }) {
       <Popover active={active} activator={<Button variant="plain" icon={MenuHorizontalIcon} onClick={toggleActive} />} onClose={close}>
         <ActionList
           items={[
-            { content: "Edit", onAction: () => navigate(`/app/banner-bar?id=${banner.id}`) },
+            { content: "Edit", onAction: () => navigate(`/app/banner-large?id=${banner.id}`) },
             {
               content: "Duplicate",
               onAction: () => {
@@ -151,7 +149,7 @@ function LargeRow({ banner, navigate, shop }) {
   const themeEditorUrl = `https://${shop}/admin/themes/current/editor?context=apps`;
 
   return (
-    <div role="presentation" onClick={() => navigate(`/app/banner-bar?id=${banner.id}`)} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1.2fr 1fr auto", gap: "16px", alignItems: "center", padding: "18px 16px", borderTop: "1px solid #eef1f4", cursor: "pointer" }}>
+    <div role="presentation" onClick={() => navigate(`/app/banner-large?id=${banner.id}`)} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1.2fr 1fr auto", gap: "16px", alignItems: "center", padding: "18px 16px", borderTop: "1px solid #eef1f4", cursor: "pointer" }}>
       <BlockStack gap="100">
         <InlineStack gap="200" blockAlign="center">
           <Text as="h3" variant="bodyMd" fontWeight="semibold">
@@ -217,7 +215,7 @@ export default function LargeHomePage() {
                   Create your first large banner to display it on the storefront.
                 </Text>
                 <InlineStack>
-                  <Button variant="primary" onClick={() => navigate("/app/banner-bar?preset=large")}>
+                  <Button variant="primary" onClick={() => navigate("/app/banner-large?preset=large")}>
                     Create
                   </Button>
                 </InlineStack>

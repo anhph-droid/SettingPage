@@ -1,5 +1,7 @@
 import prisma from "../db.server";
-import { syncExpiredBannersForShop } from "../lib/bannerStatus.server";
+import { getBannerImageMap } from "../banner-images.server";
+import { unauthenticated } from "../shopify.server";
+import { syncExpiredBannersForShop } from "../banner.server";
 import { authenticate } from "../shopify.server";
 
 export const loader = async ({ request }) => {
@@ -20,6 +22,24 @@ export const loader = async ({ request }) => {
   }
 
   await syncExpiredBannersForShop(shop, now);
+  const bannerSelect = {
+    id: true,
+    title: true,
+    content: true,
+    link: true,
+    size: true,
+    backgroundColor: true,
+    color: true,
+    position: true,
+    timeEnd: true,
+    targetPage: true,
+    targetProductId: true,
+    dismissible: true,
+    borderColor: true,
+    borderWidth: true,
+    borderStyle: true,
+    borderRadius: true,
+  };
 
   const banners = await prisma.app_banner.findMany({
     where: {
@@ -35,27 +55,23 @@ export const loader = async ({ request }) => {
       { priority: "desc" },
       { createdAt: "desc" },
     ],
-    select: {
-      id: true,
-      title: true,
-      content: true,
-      link: true,
-      size: true,
-      backgroundColor: true,
-      color: true,
-      position: true,
-      timeEnd: true,
-      targetPage: true,
-      targetProductId: true,
-      dismissible: true,
-      borderColor: true,
-      borderWidth: true,
-      borderStyle: true,
-      borderRadius: true,
-    },
+    select: bannerSelect,
   });
 
-  return new Response(JSON.stringify({ banners }), {
+  let bannerImageMap = {};
+  try {
+    const { admin } = await unauthenticated.admin(shop);
+    bannerImageMap = await getBannerImageMap(admin);
+  } catch {
+    bannerImageMap = {};
+  }
+
+  const bannersWithImages = banners.map((banner) => ({
+    ...banner,
+    backgroundImage: bannerImageMap[String(banner.id)] || "",
+  }));
+
+  return new Response(JSON.stringify({ banners: bannersWithImages }), {
     status: 200,
     headers: {
       "Content-Type": "application/json",
